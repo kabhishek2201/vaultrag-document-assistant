@@ -1,11 +1,16 @@
 # VaultRAG Document Assistant
 
-A file-only document search and chat prototype. It searches administrator-uploaded files, supports cross-file references, and returns point-wise answers with source metadata when available.
+A file-only document search and chat prototype.
+
+- `index.html` — Admin and architecture demo.
+- `user.html` — Separate user-only chat page with a blank conversation and the Loan Policy greeting. It reads the bundled circulars from `documents.json` for every visitor, then adds active uploads from the same browser.
 
 ## Run locally
 
-Open `index.html` in a modern browser. PDF and DOCX extraction use the libraries referenced by the page, so those formats require an internet connection while loading the page.
+Open either HTML file in a modern browser. PDF and DOCX extraction on the admin page use referenced libraries and need an internet connection while loading.
 
-## Multi-user testing limits
+## Storage and multi-user testing
 
-This is a static prototype. Uploaded documents and settings are stored in each visitor's browser, so different testers do not share uploads or chat state. The demo admin login is client-side and is not production access control. Do not upload confidential documents or real credentials. Shared documents and real access control require a backend service.
+This is a static prototype. Admin uploads are stored in that browser's local storage. The two bundled Loan Policy circulars are available to every visitor through `documents.json`. Additional admin uploads remain in that browser's local storage and are not shared to other testers. Shared uploads and real access control require a backend service.
+
+The demo admin sign-in is client-side and is not production access control. Do not upload confidential documents or real credentials.

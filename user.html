@@ -50,7 +50,7 @@
     <div class="notice" id="sourceStatus" role="status">Checking available admin documents… No web search is used.</div>
     <section class="card" aria-label="Document chat">
       <div id="messages" class="messages" aria-live="polite">
-        <div class="welcome">Ask a question about the available documents. Replies show relevant passages and their source details. Follow-up questions can refer to your previous question.</div>
+        <div class="welcome">Hi! Ask me anything from Loan Policy and its IC No.</div>
       </div>
       <form id="chatForm">
         <input id="query" type="text" autocomplete="off" placeholder="Ask about the uploaded documents…" aria-label="Your question" required />
@@ -61,18 +61,25 @@
   </main>
   <script>
     const STORAGE_KEYS = ['vaultrag_state_v2', 'vaultrag_state_v1'];
+    let sharedDefaultDocs = [];
+    async function loadSharedDefaults() {
+      try { const response = await fetch('./documents.json', { cache: 'no-store' }); if (response.ok) { const docs = await response.json(); if (Array.isArray(docs)) sharedDefaultDocs = docs.filter(d => d && d.active !== false && String(d.content || '').trim()); } } catch (_) {}
+    }
     const STOP = new Set('a an the is are was were be been being have has had do does did of in to for with on at from by what which who how when where why and or not tell me please can could would should about according explain find tell show give it its this that these those they them their'.split(' '));
     const messages = document.getElementById('messages');
     let previousQuestion = '';
 
     function activeDocuments() {
+      let localDocs = [];
       try {
         for (const key of STORAGE_KEYS) {
           const saved = JSON.parse(localStorage.getItem(key) || 'null');
-          if (saved && Array.isArray(saved.documents)) return saved.documents.filter(d => d.active !== false && String(d.content || '').trim());
+          if (saved && Array.isArray(saved.documents)) { localDocs = saved.documents.filter(d => d.active !== false && !['doc_sample_1', 'doc_sample_2'].includes(d.id) && String(d.content || '').trim()); break; }
         }
       } catch (_) {}
-      return [];
+      const byId = new Map(sharedDefaultDocs.map(d => [d.id || d.name, d]));
+      for (const doc of localDocs) byId.set(doc.id || doc.name, doc);
+      return [...byId.values()];
     }
     function norm(word) {
       let w = String(word || '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -106,7 +113,7 @@
     }
     function metadata(doc, passage) {
       const all = String(doc.content || '');
-      const circ = all.match(/\b(?:circular|circ\.)\s*(?:no\.?|number|#)\s*[:\-]?\s*([A-Z0-9][A-Z0-9/.-]*)/i);
+      const circ = all.match(/\b(?:(?:instruction\s+)?circular|circ\.)\s*(?:no\.?|number|#)\s*[:\-]?\s*([A-Z0-9][A-Z0-9/.-]*)/i);
       const date = all.match(/\b(?:\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}|\d{4}-\d{2}-\d{2}|\d{1,2}\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{4}|(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2},?\s+\d{4})\b/i);
       const point = passage.match(/\b(?:point|para(?:graph)?|clause|item)\s*(?:no\.?|number|#)?\s*([0-9]+(?:\.[0-9]+)*(?:\([a-z0-9]+\))?)/i) || passage.match(/^\s*(\d+(?:\.\d+)*(?:\([a-z0-9]+\))?)[.)]?\s+/i);
       const page = passage.match(/\bPAGE\s+(\d+)/i);
@@ -171,9 +178,10 @@
       const wrapper=document.createElement('div');wrapper.innerHTML=answerHtml(result,tokens(q),followUp);messages.appendChild(wrapper.firstElementChild);
       previousQuestion=q;input.value='';input.focus();messages.scrollTop=messages.scrollHeight;refreshStatus();
     });
-    document.getElementById('clear').addEventListener('click',()=>{messages.innerHTML='<div class="welcome">Ask a question about the available documents. Replies show relevant passages and their source details. Follow-up questions can refer to your previous question.</div>';previousQuestion='';document.getElementById('query').focus();});
+    document.getElementById('clear').addEventListener('click',()=>{messages.innerHTML='<div class="welcome">Hi! Ask me anything from Loan Policy and its IC No.</div>';previousQuestion='';document.getElementById('query').focus();});
     window.addEventListener('storage',refreshStatus);
     refreshStatus();
+    loadSharedDefaults().then(refreshStatus);
   </script>
 </body>
 </html>
