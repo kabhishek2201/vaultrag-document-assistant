@@ -1,0 +1,2433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VaultRAG — Floating User Chat Widget & Separate Admin Portal</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    mark.hl {
+      background-color: #fef08a;
+      color: #0f172a;
+      padding: 0 3px;
+      border-radius: 3px;
+      font-weight: 600;
+    }
+    @keyframes popIn {
+      from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.97);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+    .widget-popup-anim {
+      animation: popIn 0.18s ease-out forwards;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 antialiased selection:bg-indigo-600 selection:text-white">
+  <div id="appRoot" class="min-h-screen flex flex-col h-screen overflow-hidden">
+    <!-- Top Environment Simulation Bar -->
+    <header class="bg-white border-b border-slate-200 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0 z-30">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-sm shadow-indigo-200">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1 class="text-sm font-bold tracking-tight text-slate-900">VaultRAG Architecture</h1>
+            <span id="currentUrlBadge" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] mono font-semibold bg-slate-100 text-slate-700 border border-slate-300">
+              URL: https://yourwebsite.com/ (User Page)
+            </span>
+            <span id="roleStatusBadge" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              Strict File-Only Widget
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-500">Floating user chat popup widget + Separate Admin URL &amp; copy-paste embed codes</p>
+        </div>
+      </div>
+
+      <!-- URL Route & Embed Code Switcher -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <div class="inline-flex rounded-lg bg-slate-100 p-1 border border-slate-200">
+          <button id="tabWidgetBtn" type="button" class="px-3 py-1.5 rounded-md text-xs font-semibold transition-all bg-white text-slate-900 shadow-sm flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 text-indigo-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            1. User Webpage (Floating Popup)
+          </button>
+          <button id="tabEmbedBtn" type="button" class="px-3 py-1.5 rounded-md text-xs font-semibold transition-all text-slate-600 hover:text-slate-900 flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 text-indigo-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+            </svg>
+            2. Get Embed &amp; Admin Code
+          </button>
+          <button id="tabAdminBtn" type="button" class="px-3 py-1.5 rounded-md text-xs font-semibold transition-all text-slate-600 hover:text-slate-900 flex items-center gap-1.5">
+            <svg id="adminTabLockIcon" class="w-3.5 h-3.5 text-amber-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            <span id="adminTabLabel">Admin Panel</span>
+            <span id="adminDocCountBadge" class="px-1.5 py-0.2 rounded-full text-[11px] bg-indigo-100 text-indigo-700 font-bold">2</span>
+          </button>
+          <button id="tabChatBtn" type="button" class="px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all text-slate-600 hover:text-slate-900 flex items-center gap-1">
+            User Chat
+          </button>
+          <button id="tabSplitBtn" type="button" class="hidden px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all text-slate-600 hover:text-slate-900 items-center gap-1">
+            Split View
+          </button>
+        </div>
+
+        <!-- Admin-Only Upload Button (Hidden for regular users) -->
+        <button id="openQuickUploadBtn" type="button" class="hidden px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          Upload File
+        </button>
+
+        <!-- Admin Logout Button -->
+        <button id="logoutAdminBtn" type="button" class="hidden px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-sm transition items-center gap-1.5">
+          Logout Admin
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <main class="flex-1 flex overflow-hidden relative">
+      <!-- VIEW 1: SIMULATED USER WEBPAGE WITH FLOATING POPUP CHATBOT WIDGET -->
+      <section id="widgetDemoSection" class="flex-1 bg-slate-100 overflow-y-auto p-6 relative">
+        <div class="max-w-4xl mx-auto space-y-6">
+          <!-- Simulated Host Website Banner -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                Live User Webpage Preview (No Upload / No Admin Controls Visible)
+              </span>
+              <div class="flex items-center gap-2">
+                <button id="openPopupDemoBtn" type="button" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-xs">
+                  Toggle Bottom-Right Chat Box
+                </button>
+                <button id="jumpToEmbedCodeBtn" type="button" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white transition">
+                  View Copy-Paste HTML Codes →
+                </button>
+              </div>
+            </div>
+            <h2 class="text-xl font-bold text-slate-900">Your Main Website / Portal Page</h2>
+            <p class="text-sm text-slate-600 leading-relaxed">
+              This represents your public or internal user webpage. Notice the <strong>floating circular chat launcher button</strong> in the bottom-right corner. When a user clicks it, a compact popup box opens with a small textbox for input and reply display—strictly locked to the files uploaded at your separate Admin URL (<code class="mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">#/admin</code>).
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+              <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                <p class="text-xs font-bold text-slate-800">1. Compact Floating UI</p>
+                <p class="text-xs text-slate-600">Clicks open a 360×480px floating widget with a small input box and scrollable grounded reply window.</p>
+              </div>
+              <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                <p class="text-xs font-bold text-slate-800">2. Zero User Upload Access</p>
+                <p class="text-xs text-slate-600">Users cannot upload, modify, or delete files. They can only query the active repository.</p>
+              </div>
+              <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                <p class="text-xs font-bold text-slate-800">3. Separate Admin URL</p>
+                <p class="text-xs text-slate-600">Admins use <code class="mono">admin-portal.html</code> (or <code class="mono">#/admin</code>) with login credentials to upload circulars.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Test Cards for the Floating Widget -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-3">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Click any question below to test inside the Floating Widget:</h3>
+            <div id="widgetQuickPrompts" class="flex flex-wrap gap-2"></div>
+          </div>
+        </div>
+
+        <!-- FLOATING WIDGET CONTAINER (Fixed Bottom-Right — Exactly what embeds into the user's webpage) -->
+        <div id="floatingWidgetRoot" class="fixed bottom-5 right-5 z-40 flex flex-col items-end">
+          <!-- Popup Chat Box (Opens on Launcher Click) -->
+          <div id="floatingPopupBox" class="widget-popup-anim mb-3 w-[350px] sm:w-[375px] h-[470px] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden">
+            <!-- Compact Popup Header -->
+            <div class="bg-indigo-600 text-white px-4 py-3 flex items-center justify-between shrink-0">
+              <div class="flex items-center gap-2.5">
+                <div class="w-7 h-7 rounded-lg bg-white/15 flex items-center justify-center">
+                  <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                  </svg>
+                </div>
+                <div>
+                  <h4 class="text-xs font-bold leading-tight">Document Assistant</h4>
+                  <span id="widgetActiveCountSub" class="text-[10px] text-indigo-100 block">Strict Uploaded-Files Mode • No Web Search</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-1">
+                <button id="widgetClearBtn" type="button" class="p-1 rounded hover:bg-white/15 text-[10px] font-medium text-indigo-100" title="Clear conversation">
+                  Clear
+                </button>
+                <button id="widgetCloseBtn" type="button" class="p-1 rounded hover:bg-white/15 text-white" title="Minimize chat">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Compact Popup Messages Display -->
+            <div id="widgetMessagesList" class="flex-1 overflow-y-auto p-3 space-y-2.5 bg-slate-50 text-xs"></div>
+
+            <!-- Small Textbox Input Bar -->
+            <form id="widgetChatForm" class="p-2.5 bg-white border-t border-slate-200 flex items-center gap-1.5 shrink-0">
+              <input
+                id="widgetQueryInput"
+                type="text"
+                placeholder="Type your question..."
+                autocomplete="off"
+                class="flex-1 px-3 py-2 text-xs rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600"
+              />
+              <button
+                type="submit"
+                class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition shrink-0 flex items-center gap-1"
+              >
+                <span>Send</span>
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+              </button>
+            </form>
+          </div>
+
+          <!-- Floating Circular Launcher Button -->
+          <button
+            id="floatingLauncherBtn"
+            type="button"
+            class="h-13 px-4 py-3 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-xl shadow-indigo-600/30 flex items-center gap-2.5 transition transform hover:scale-105 cursor-pointer"
+          >
+            <svg id="launcherChatIcon" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+            </svg>
+            <span id="launcherBtnText" class="text-xs font-bold tracking-wide">Ask Document Bot</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- VIEW 2: EMBED CODE & SEPARATE ADMIN PORTAL CODE GENERATOR -->
+      <section id="embedCodeSection" class="hidden flex-1 bg-slate-50 overflow-y-auto p-6">
+        <div class="max-w-4xl mx-auto space-y-6">
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-2">
+            <h2 class="text-base font-bold text-slate-900">Separated Deployment Codes (User Webpage Widget vs. Separate Admin URL)</h2>
+            <p class="text-xs text-slate-600 leading-relaxed">
+              Use the two separate code files below so regular website visitors only get the compact floating chat button and popup textbox, while Administrators log in at a separate private URL (<code class="mono bg-slate-100 px-1.5 py-0.5 rounded">admin-portal.html</code>) to upload files. Both files sync automatically via browser storage on the same domain, or you can click <strong>Export Synced User Widget</strong> after uploading files.
+            </p>
+          </div>
+
+          <!-- Code Block 1: User Website Floating Widget Snippet -->
+          <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
+            <div class="bg-slate-900 text-white px-4 py-3 flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Code 1 — User Webpage Floating Chat Widget</span>
+                <p class="text-[11px] text-slate-300">Paste this snippet before <code class="mono">&lt;/body&gt;</code> on any user webpage. Contains NO upload or admin UI.</p>
+              </div>
+              <button id="copyUserWidgetCodeBtn" type="button" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition">
+                Copy User Widget Code
+              </button>
+            </div>
+            <pre id="userWidgetCodePre" class="p-4 text-[11px] mono bg-slate-950 text-slate-100 overflow-x-auto max-h-80 leading-relaxed"></pre>
+          </div>
+
+          <!-- Code Block 2: Separate Admin Portal URL File -->
+          <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
+            <div class="bg-slate-900 text-white px-4 py-3 flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <span class="text-xs font-bold text-amber-400 uppercase tracking-wider">Code 2 — Separate Admin Portal (`admin-portal.html`)</span>
+                <p class="text-[11px] text-slate-300">Host this file at a separate private URL (e.g., <code class="mono">https://yourwebsite.com/admin-portal.html</code>). Protected by Admin Login.</p>
+              </div>
+              <button id="copyAdminPortalCodeBtn" type="button" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white transition">
+                Copy Separate Admin HTML
+              </button>
+            </div>
+            <pre id="adminPortalCodePre" class="p-4 text-[11px] mono bg-slate-950 text-slate-100 overflow-x-auto max-h-80 leading-relaxed"></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ADMIN PANEL (Protected: Only accessible at #/admin when Admin is authenticated) -->
+      <section id="adminSection" class="hidden w-full lg:w-[440px] xl:w-[480px] bg-white border-r border-slate-200 flex-col h-full overflow-y-auto shrink-0">
+        <div class="p-4 space-y-5">
+          <!-- Admin Status Banner -->
+          <div class="p-3.5 rounded-xl bg-slate-900 text-white space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold uppercase tracking-wider text-indigo-300 flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                Separate Admin Portal (`#/admin`)
+              </span>
+              <span id="totalChunksStat" class="text-xs mono text-slate-300">0 chunks indexed</span>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Upload files here. Any changes immediately update the User Floating Widget and regenerate the embeddable widget code with your uploaded documents baked in.
+            </p>
+          </div>
+
+          <!-- File Dropzone (Admin Only) -->
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">1. Upload Document Files (Admin Only)</label>
+            <div id="dropZone" class="border-2 border-dashed border-slate-300 hover:border-indigo-500 rounded-xl p-5 text-center transition-colors bg-slate-50/70 cursor-pointer">
+              <input id="fileInput" type="file" multiple accept=".txt,.md,.csv,.json,.pdf,.docx,.log" class="hidden" />
+              <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+              </div>
+              <p class="text-sm font-semibold text-slate-800">Click to select files or drag &amp; drop here</p>
+              <p class="text-xs text-slate-500 mt-1">Supports <span class="font-medium text-slate-700">.PDF, .DOCX, .TXT, .MD, .CSV, .JSON</span> (parsed locally in browser)</p>
+              <div class="mt-3 flex items-center justify-center gap-2">
+                <button id="browseFilesBtn" type="button" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition">
+                  Select Files from Device
+                </button>
+                <button id="togglePasteFormBtn" type="button" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-slate-700 border border-slate-300 hover:bg-slate-100 transition">
+                  + Paste Text Document
+                </button>
+              </div>
+            </div>
+
+            <!-- Direct Paste Document Form -->
+            <div id="pasteDocForm" class="hidden mt-3 p-3.5 rounded-xl border border-indigo-200 bg-indigo-50/40 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-indigo-950">Add Custom Document via Text Paste</span>
+                <button id="closePasteFormBtn" type="button" class="text-xs text-slate-500 hover:text-slate-800">Close</button>
+              </div>
+              <div>
+                <label for="customDocTitle" class="block text-xs font-medium text-slate-700 mb-1">Document Filename / Circular Title</label>
+                <input id="customDocTitle" type="text" placeholder="e.g., HR_Policy_2026.txt" class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label for="customDocContent" class="block text-xs font-medium text-slate-700 mb-1">Exact Document Content</label>
+                <textarea id="customDocContent" rows="5" placeholder="Paste the exact policy, circular, FAQ, or manual text here..." class="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+              </div>
+              <div class="flex justify-end gap-2">
+                <button id="savePastedDocBtn" type="button" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition">
+                  Index &amp; Save Document
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Uploaded Files List -->
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <label class="text-xs font-semibold uppercase tracking-wider text-slate-500">2. Indexed Repository Files</label>
+              <div class="flex items-center gap-2">
+                <button id="loadSamplesBtn" type="button" class="text-xs font-medium text-indigo-600 hover:text-indigo-800">Restore Samples</button>
+                <span class="text-slate-300">|</span>
+                <button id="clearAllDocsBtn" type="button" class="text-xs font-medium text-rose-600 hover:text-rose-800">Clear All</button>
+              </div>
+            </div>
+
+            <div id="fileListContainer" class="space-y-2.5"></div>
+          </div>
+
+          <!-- Strictness & Anti-Hallucination Controls -->
+          <div class="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-700">3. Anti-Hallucination &amp; Grounding Rules</span>
+              <span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-100 text-emerald-800">ENFORCED</span>
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <label for="thresholdSelect" class="font-medium text-slate-700">Minimum Keyword Match Strictness</label>
+                <span id="thresholdLabel" class="mono text-indigo-600 font-semibold">Balanced (Strict)</span>
+              </div>
+              <select id="thresholdSelect" class="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="low">High Recall (Matches at least 1 meaningful domain term)</option>
+                <option value="medium" selected>Balanced Strict (Requires strong keyword/phrase overlap)</option>
+                <option value="high">Ultra-Strict (Requires multi-term or exact phrase match)</option>
+              </select>
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <label for="maxChunksSelect" class="font-medium text-slate-700">Max Retrieved Clauses per Reply</label>
+              </div>
+              <select id="maxChunksSelect" class="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="1">Top 1 Most Relevant Passage Only (Pinpoint)</option>
+                <option value="2">Top 2 Relevant Passages</option>
+                <option value="3">Top 3 Relevant Passages</option>
+                <option value="6" selected>Up to 6 Passages Across Files (Cross-Reference)</option>
+              </select>
+            </div>
+
+            <div class="pt-2 border-t border-slate-200 space-y-2">
+              <div class="flex items-center justify-between">
+                <label for="verbatimOnlyToggle" class="text-xs font-medium text-slate-700 cursor-pointer">
+                  100% Extractive Verbatim Mode (No AI rewording)
+                </label>
+                <input id="verbatimOnlyToggle" type="checkbox" checked class="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4" />
+              </div>
+              <p class="text-[11px] text-slate-500 leading-normal">
+                When enabled, replies are assembled strictly from exact sentences inside your uploaded files.
+              </p>
+            </div>
+
+            <div id="apiKeyBox" class="pt-2 border-t border-slate-200 space-y-1.5">
+              <label for="geminiApiKeyInput" class="block text-xs font-medium text-slate-700">Optional Gemini API Key (For Strict Context-Locked Synthesis)</label>
+              <input id="geminiApiKeyInput" type="password" placeholder="Leave blank for 100% offline deterministic extraction" class="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+          </div>
+
+          <!-- Admin Login Credentials Settings -->
+          <div class="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-700">4. Admin Credentials Management</span>
+              <span id="currentAdminUserLabel" class="mono text-[11px] text-indigo-700 font-semibold">ID: admin</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label for="newAdminUserInput" class="block text-[11px] font-medium text-slate-600 mb-1">New Admin Username</label>
+                <input id="newAdminUserInput" type="text" placeholder="admin" class="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label for="newAdminPassInput" class="block text-[11px] font-medium text-slate-600 mb-1">New Admin Password</label>
+                <input id="newAdminPassInput" type="password" placeholder="••••••••" class="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+            </div>
+            <div class="flex items-center justify-between pt-1">
+              <span class="text-[11px] text-slate-500">Updates login details for <code class="mono">#/admin</code>.</span>
+              <button id="updateAdminCredsBtn" type="button" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white transition">
+                Update Login Details
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- FULL CHAT SECTION -->
+      <section id="chatSection" class="hidden flex-1 flex-col h-full bg-slate-50 overflow-hidden">
+        <div class="bg-white border-b border-slate-200 px-4 py-2 flex items-center justify-between gap-2 text-xs shrink-0">
+          <div class="flex items-center gap-2 overflow-x-auto py-0.5">
+            <span class="font-semibold text-slate-600 shrink-0">Active Knowledge Base:</span>
+            <div id="activeDocsPills" class="flex items-center gap-1.5"></div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button id="clearChatBtn" type="button" class="px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition">
+              Reset Chat
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-slate-100/80 border-b border-slate-200 px-4 py-2 flex items-center gap-2 overflow-x-auto shrink-0">
+          <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 shrink-0">Test Prompts:</span>
+          <div id="samplePromptsContainer" class="flex items-center gap-1.5"></div>
+        </div>
+
+        <div id="chatMessages" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4"></div>
+
+        <div class="bg-white border-t border-slate-200 p-3 sm:p-4 shrink-0">
+          <form id="chatForm" class="max-w-4xl mx-auto flex items-end gap-2">
+            <div class="flex-1 relative">
+              <textarea
+                id="userQueryInput"
+                rows="1"
+                placeholder="Ask a question strictly about the admin-uploaded documents... (Press Enter to send)"
+                class="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent resize-none leading-relaxed"
+              ></textarea>
+            </div>
+            <button
+              id="sendQueryBtn"
+              type="submit"
+              class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm shadow-sm transition flex items-center gap-1.5 shrink-0"
+            >
+              <span>Ask Bot</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+            </button>
+          </form>
+          <div class="max-w-4xl mx-auto mt-2 flex items-center justify-between text-[11px] text-slate-500 px-1">
+            <span>Guardrail Active: Bot answers strictly from admin-uploaded files. Web search &amp; user uploads are disabled.</span>
+            <span id="engineModeIndicator" class="mono font-medium text-slate-600">Engine: Extractive Verbatim Lock</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Admin Login Modal (Protects #/admin URL & Upload Controls) -->
+    <div id="adminLoginModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl max-w-md w-full shadow-xl border border-slate-200 overflow-hidden">
+        <div class="bg-slate-900 px-5 py-4 flex items-center justify-between text-white">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+              <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-sm font-bold">Separate Admin Portal Login (`#/admin`)</h3>
+              <p class="text-[11px] text-slate-300">Authenticate to upload files or change settings</p>
+            </div>
+          </div>
+          <button id="closeLoginModalBtn" type="button" class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <form id="adminLoginForm" class="p-5 space-y-4">
+          <div class="p-3 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-between gap-2">
+            <div class="text-xs text-indigo-950">
+              <span class="font-bold block">Default Admin Credentials:</span>
+              <span class="mono text-[11px]">Username: <strong id="hintAdminUser">admin</strong> &nbsp;|&nbsp; Password: <strong id="hintAdminPass">Admin@2026</strong></span>
+            </div>
+            <button id="fillDemoCredsBtn" type="button" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-indigo-600 text-white hover:bg-indigo-700 shrink-0 transition">
+              Auto-Fill
+            </button>
+          </div>
+
+          <div id="loginErrorBanner" class="hidden p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-xs font-medium text-rose-700">
+            Invalid administrator username or password. Please try again.
+          </div>
+
+          <div>
+            <label for="adminUsernameInput" class="block text-xs font-semibold text-slate-700 mb-1">Admin Username</label>
+            <input
+              id="adminUsernameInput"
+              type="text"
+              autocomplete="username"
+              placeholder="Enter admin username"
+              required
+              class="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600"
+            />
+          </div>
+
+          <div>
+            <label for="adminPasswordInput" class="block text-xs font-semibold text-slate-700 mb-1">Admin Password</label>
+            <input
+              id="adminPasswordInput"
+              type="password"
+              autocomplete="current-password"
+              placeholder="Enter admin password"
+              required
+              class="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600"
+            />
+          </div>
+
+          <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+            <button id="cancelLoginBtn" type="button" class="px-3.5 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">
+              Cancel
+            </button>
+            <button type="submit" class="px-4 py-2 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition">
+              Unlock Admin Console
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Document Inspector Modal (Admin Only) -->
+    <div id="docInspectorModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[82vh] flex flex-col shadow-xl border border-slate-200 overflow-hidden">
+        <div class="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between">
+          <div>
+            <h3 id="modalDocTitle" class="text-sm font-bold text-slate-900">Document Inspector</h3>
+            <p id="modalDocMeta" class="text-xs text-slate-500"></p>
+          </div>
+          <button id="closeModalBtn" type="button" class="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div id="modalChunksList" class="p-5 overflow-y-auto space-y-3 text-xs leading-relaxed bg-slate-50 flex-1"></div>
+      </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toastBox" class="hidden fixed bottom-5 left-5 z-50 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-medium shadow-lg border border-slate-700 flex items-center gap-2">
+      <span id="toastText"></span>
+    </div>
+  </div>
+
+  <script>
+    if (window.pdfjsLib) {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+
+    const DEFAULT_DOCS = [
+      {
+        id: 'doc_sample_1',
+        name: 'Credit_Monitoring_&_Renewal_Circular_2026.txt',
+        type: 'TXT',
+        active: true,
+        uploadedAt: 'Admin Pre-loaded',
+        content: [
+          'SECTION 1: BORROWER RENEWAL NOTICE TIMELINES',
+          'Automated borrower renewal notices must be generated exactly 2 months prior to the credit limit expiry due date. The borrower is strictly required to submit the complete renewal application package at least 30 days prior to the limit expiry date.',
+          '',
+          'SECTION 2: MANDATORY DOCUMENTS FOR LIMIT RENEWAL',
+          'Every MSME and corporate borrower renewal submission must include five mandatory documents: (1) Formal Renewal Request Letter, (2) Audited Balance Sheet for the previous financial year, (3) Credit Monitoring Arrangement (CMA) data projections, (4) Statement of Accounts for the past 12 months, and (5) Income Tax Returns (ITR) of the Firm, Company, Promoters, and Guarantors.',
+          '',
+          'SECTION 3: VEHICLE LOAN SANCTION DELEGATION & MARGIN',
+          'For Scale-IV Chief Managers heading Very Large Branches, the maximum delegated sanctioning authority for retail four-wheeler vehicle loans is Rs. 25,00,000 (Rupees Twenty-Five Lakhs only), subject to a minimum borrower margin of 15% on the on-road price and a minimum CIBIL score of 720.',
+          '',
+          'SECTION 4: CHEQUE & INTERNET BANKING AUTHORIZATION',
+          'Single-user operational authorization is permitted for corporate Internet Banking viewing and single-signatory workflows where explicitly requested, whereas physical cheque operations strictly require dual joint authorization as mandated by the corporate Board Resolution.'
+        ].join('\n')
+      },
+      {
+        id: 'doc_sample_2',
+        name: 'Employee_Leave_&_IT_Security_Manual.txt',
+        type: 'TXT',
+        active: true,
+        uploadedAt: 'Admin Pre-loaded',
+        content: [
+          'CLAUSE 101: ANNUAL PRIVILEGE LEAVE & NOTICE',
+          'Employees may avail up to 30 days of Privilege Leave per calendar year. Applications for planned family travel exceeding 4 consecutive working days must be submitted at least 7 days in advance in the HRMS portal.',
+          '',
+          'CLAUSE 102: USB & EXTERNAL STORAGE POLICY',
+          'Connecting unauthorized personal USB flash drives to branch workstation terminals is strictly prohibited. All official audit and appraisal PDFs must be scanned using approved duplex ADF desktop scanners with departmental OCR software.',
+          '',
+          'CLAUSE 103: PASSWORD ROTATION & LOCKOUT',
+          'Core banking and internal portal passwords must be minimum 12 characters long and rotated every 45 days. Five consecutive failed login attempts will lock the user terminal for 30 minutes.'
+        ].join('\n')
+      }
+    ];
+
+    const STOPWORDS = new Set([
+      'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+      'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'shall',
+      'should', 'may', 'might', 'must', 'can', 'could', 'of', 'in', 'to',
+      'for', 'with', 'on', 'at', 'from', 'by', 'about', 'as', 'into', 'like',
+      'through', 'after', 'over', 'between', 'out', 'against', 'during',
+      'without', 'before', 'under', 'around', 'among', 'what', 'which', 'who',
+      'whom', 'this', 'that', 'these', 'those', 'am', 'or', 'and', 'but', 'if',
+      'because', 'until', 'while', 'how', 'when', 'where', 'why', 'all', 'any',
+      'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no',
+      'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 'tell',
+      'me', 'please', 'give', 'explain', 'show', 'bot', 'chatbot', 'according',
+      'file', 'files', 'document', 'documents', 'uploaded', 'much', 'many',
+      'their', 'there', 'they', 'them', 'his', 'her', 'its', 'our', 'your', 'my'
+    ]);
+
+    const state = {
+      isAdminAuthenticated: false,
+      adminUsername: 'admin',
+      adminPassword: 'Admin@2026',
+      pendingAdminTargetView: 'admin',
+      viewMode: 'widget', // 'widget' | 'embed' | 'admin' | 'chat' | 'split'
+      isWidgetPopupOpen: true,
+      documents: [],
+      strictness: 'medium',
+      maxChunks: 6,
+      verbatimOnly: true,
+      geminiApiKey: '',
+      messages: []
+    };
+
+    let toastTimer = null;
+    function showToast(message) {
+      const box = document.getElementById('toastBox');
+      const text = document.getElementById('toastText');
+      if (!box || !text) return;
+      text.textContent = message;
+      box.classList.remove('hidden');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        box.classList.add('hidden');
+      }, 3200);
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function copyTextToClipboard(text, successMsg) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(
+          () => showToast(successMsg),
+          () => fallbackCopy(text, successMsg)
+        );
+      } else {
+        fallbackCopy(text, successMsg);
+      }
+    }
+
+    function fallbackCopy(text, successMsg) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        showToast(successMsg);
+      } catch (e) {
+        showToast('Could not copy automatically — please select and copy.');
+      }
+      document.body.removeChild(ta);
+    }
+
+    function normalizeToken(word) {
+      let w = word.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (w.length > 4 && w.endsWith('ies')) return w.slice(0, -3) + 'y';
+      if (w.length > 4 && w.endsWith('ing')) return w.slice(0, -3);
+      if (w.length > 3 && w.endsWith('ed')) return w.slice(0, -2);
+      if (w.length > 3 && w.endsWith('es')) return w.slice(0, -2);
+      if (w.length > 3 && w.endsWith('s') && !w.endsWith('ss')) return w.slice(0, -1);
+      return w;
+    }
+
+    function tokenizeQuery(text) {
+      const rawTokens = String(text || '')
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter(Boolean);
+      const meaningful = [];
+      const seen = new Set();
+      for (const raw of rawTokens) {
+        if (STOPWORDS.has(raw)) continue;
+        if (raw.length < 2 && !/^\d+$/.test(raw)) continue;
+        const norm = normalizeToken(raw);
+        if (!norm || STOPWORDS.has(norm)) continue;
+        if (!seen.has(norm)) {
+          seen.add(norm);
+          meaningful.push({ raw, norm });
+        }
+      }
+      return meaningful;
+    }
+
+    function chunkDocumentText(docId, docName, rawText) {
+      const text = String(rawText || '').replace(/\r\n/g, '\n').trim();
+      if (!text) return [];
+
+      const paragraphs = text.split(/\n\s*\n+/).map(p => p.trim()).filter(Boolean);
+      const chunks = [];
+      let currentHeading = 'General Section';
+      let chunkCounter = 1;
+
+      for (let i = 0; i < paragraphs.length; i++) {
+        const para = paragraphs[i];
+        const lines = para.split('\n').map(l => l.trim()).filter(Boolean);
+
+        if (
+          lines.length === 1 &&
+          lines[0].length < 95 &&
+          (/^(section|clause|chapter|part|article|rule|policy|\d+[\.\)]|#)/i.test(lines[0]) ||
+            lines[0] === lines[0].toUpperCase())
+        ) {
+          currentHeading = lines[0].replace(/^#+\s*/, '');
+          continue;
+        }
+
+        let bodyText = para;
+        if (
+          lines.length > 1 &&
+          lines[0].length < 95 &&
+          (/^(section|clause|chapter|part|article|rule|policy|\d+[\.\)]|#)/i.test(lines[0]) ||
+            lines[0] === lines[0].toUpperCase())
+        ) {
+          currentHeading = lines[0].replace(/^#+\s*/, '');
+          bodyText = lines.slice(1).join(' ');
+        }
+
+        if (bodyText.length > 650) {
+          const sentences = bodyText.match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g) || [bodyText];
+          let buffer = '';
+          for (const s of sentences) {
+            if ((buffer + ' ' + s).trim().length > 550 && buffer.trim().length > 0) {
+              chunks.push(buildChunkRecord(docId, docName, chunkCounter++, currentHeading, buffer.trim()));
+              buffer = s;
+            } else {
+              buffer = (buffer + ' ' + s).trim();
+            }
+          }
+          if (buffer.trim()) {
+            chunks.push(buildChunkRecord(docId, docName, chunkCounter++, currentHeading, buffer.trim()));
+          }
+        } else {
+          chunks.push(buildChunkRecord(docId, docName, chunkCounter++, currentHeading, bodyText));
+        }
+      }
+
+      return chunks;
+    }
+
+    function buildChunkRecord(docId, docName, index, heading, text) {
+      const combined = `${heading} ${text}`;
+      const tokens = tokenizeQuery(combined);
+      const normSet = new Set(tokens.map(t => t.norm));
+      const rawLower = combined.toLowerCase();
+      return {
+        id: `${docId}_c${index}`,
+        docId,
+        docName,
+        index,
+        heading,
+        text,
+        pageNumber: Number((heading.match(/^PAGE\s+(\d+)/i) || text.match(/\bPAGE\s+(\d+)/i) || [])[1]) || null,
+        normSet,
+        rawLower
+      };
+    }
+
+    function getSourceMetadata(result) {
+      const doc = state.documents.find(d => d.id === result.chunk.docId);
+      const fullText = String(doc?.content || '');
+      const circMatch = fullText.match(/\b(?:circular|circ\.)\s*(?:no\.?|number|#)\s*[:\-]?\s*([A-Z0-9][A-Z0-9/.-]*)/i);
+      const dateMatch = fullText.match(/\b(?:\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}|\d{4}-\d{2}-\d{2}|\d{1,2}\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{4}|(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2},?\s+\d{4})\b/i);
+      const pointMatch = `${result.chunk.heading}\n${result.chunk.text}`.match(/\b(?:point|para(?:graph)?|clause|item)\s*(?:no\.?|number|#)?\s*([0-9]+(?:\.[0-9]+)*(?:\([a-z0-9]+\))?)/i);
+      const numberedHeading = result.chunk.heading.match(/^\s*(\d+(?:\.\d+)*(?:\([a-z0-9]+\))?)[.)]?\s+/i);
+      return {
+        circular: circMatch ? circMatch[1] : 'Not stated in source',
+        date: dateMatch ? dateMatch[0] : 'Not stated in source',
+        point: pointMatch ? pointMatch[1] : (numberedHeading ? numberedHeading[1] : 'Point not numbered in source'),
+        page: result.chunk.pageNumber ? String(result.chunk.pageNumber) : 'Page not available in source'
+      };
+    }
+
+    function createIndexedDocument({ id, name, type, active, uploadedAt, content }) {
+      const chunks = chunkDocumentText(id, name, content);
+      const wordCount = String(content || '').trim().split(/\s+/).filter(Boolean).length;
+      return {
+        id,
+        name,
+        type: type || 'TXT',
+        active: active !== false,
+        uploadedAt: uploadedAt || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        content,
+        chunks,
+        wordCount
+      };
+    }
+
+    // One-edit typo matching is limited to terms already present in active document chunks.
+    function isNearDocumentTerm(queryTerm, normSet) {
+      if (queryTerm.length < 4) return false;
+      for (const term of normSet) {
+        if (term.length < 4 || Math.abs(term.length - queryTerm.length) > 1) continue;
+        let i = 0, j = 0, edits = 0;
+        while (i < queryTerm.length && j < term.length) {
+          if (queryTerm[i] === term[j]) { i++; j++; continue; }
+          if (++edits > 1) break;
+          if (queryTerm.length > term.length) i++;
+          else if (term.length > queryTerm.length) j++;
+          else { i++; j++; }
+        }
+        edits += (queryTerm.length - i) + (term.length - j);
+        if (edits <= 1) return true;
+      }
+      return false;
+    }
+
+    function retrieveStrictPassages(query, priorQuestion = '') {
+      const activeDocs = state.documents.filter(d => d.active);
+      if (activeDocs.length === 0) {
+        return {
+          status: 'NO_ACTIVE_DOCS',
+          queryTokens: [],
+          results: []
+        };
+      }
+
+      const queryTokens = tokenizeQuery(query);
+      if (queryTokens.length === 0) {
+        return {
+          status: 'NO_MEANINGFUL_QUERY',
+          queryTokens: [],
+          results: []
+        };
+      }
+
+      // Previous user wording helps resolve short follow-ups; it never contributes facts.
+      const currentNorms = new Set(queryTokens.map(t => t.norm));
+      const contextTokens = tokenizeQuery(priorQuestion)
+        .filter(t => !currentNorms.has(t.norm))
+        .map(t => ({ ...t, isContext: true }));
+      const scoringTokens = [...queryTokens, ...contextTokens];
+
+      const allChunks = [];
+      for (const doc of activeDocs) {
+        for (const ch of doc.chunks) {
+          allChunks.push(ch);
+        }
+      }
+
+      const N = Math.max(1, allChunks.length);
+      const dfMap = {};
+      for (const qt of scoringTokens) {
+        let df = 0;
+        for (const ch of allChunks) {
+          if (ch.normSet.has(qt.norm) || ch.rawLower.includes(qt.raw) || isNearDocumentTerm(qt.norm, ch.normSet)) {
+            df++;
+          }
+        }
+        dfMap[qt.norm] = df;
+      }
+
+      const cleanQueryPhrase = String(query || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+      const scored = [];
+
+      for (const ch of allChunks) {
+        const matchedTokens = [];
+        let matchedPrimaryCount = 0;
+        let idfScore = 0;
+
+        for (const qt of scoringTokens) {
+          const exactHit = ch.rawLower.includes(qt.raw);
+          const stemHit = ch.normSet.has(qt.norm) || isNearDocumentTerm(qt.norm, ch.normSet);
+          if (exactHit || stemHit) {
+            matchedTokens.push(qt.raw);
+            if (!qt.isContext) matchedPrimaryCount++;
+            const idf = Math.log(1 + (N - (dfMap[qt.norm] || 0) + 0.5) / ((dfMap[qt.norm] || 0) + 0.5));
+            idfScore += (exactHit ? 1.25 : 1.0) * Math.max(0.4, idf) * (qt.isContext ? 0.35 : 1);
+          }
+        }
+
+        if (matchedTokens.length === 0) continue;
+
+        let phraseBonus = 0;
+        if (cleanQueryPhrase.length >= 5 && ch.rawLower.includes(cleanQueryPhrase)) {
+          phraseBonus += 2.0;
+        } else if (queryTokens.length >= 2) {
+          for (let i = 0; i < queryTokens.length - 1; i++) {
+            const bi = `${queryTokens[i].raw} ${queryTokens[i + 1].raw}`;
+            if (ch.rawLower.includes(bi)) {
+              phraseBonus += 0.9;
+            }
+          }
+        }
+
+        const coverage = matchedPrimaryCount / queryTokens.length;
+        const headingHits = queryTokens.filter(qt => tokenizeQuery(ch.heading).some(ht => ht.norm === qt.norm || isNearDocumentTerm(qt.norm, new Set([ht.norm])))).length;
+        const totalScore = idfScore + phraseBonus + coverage * 1.5 + headingHits * 0.65;
+
+        let passesThreshold = false;
+        if (state.strictness === 'low') {
+          passesThreshold = matchedPrimaryCount >= 1 && coverage >= 0.25;
+        } else if (state.strictness === 'medium') {
+          if (queryTokens.length === 1) {
+            passesThreshold = matchedPrimaryCount === 1;
+          } else if (queryTokens.length === 2) {
+            passesThreshold = matchedPrimaryCount >= 1 && (coverage >= 0.5 && totalScore >= 1.4);
+          } else {
+            passesThreshold = matchedPrimaryCount >= 2 && coverage >= 0.4;
+          }
+        } else {
+          if (queryTokens.length <= 2) {
+            passesThreshold = coverage === 1.0;
+          } else {
+            passesThreshold = matchedPrimaryCount >= 2 && coverage >= 0.6;
+          }
+        }
+
+        if (passesThreshold) {
+          const sentences = ch.text.match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g) || [ch.text];
+          const matchedSentences = sentences
+            .map(s => s.trim())
+            .filter(s => {
+              const sLower = s.toLowerCase();
+              const sNorms = new Set(tokenizeQuery(s).map(t => t.norm));
+              return queryTokens.some(qt => sLower.includes(qt.raw) || sNorms.has(qt.norm));
+            });
+
+          scored.push({
+            chunk: ch,
+            matchedTokens,
+            coverage,
+            score: Number(totalScore.toFixed(2)),
+            extractedText: matchedSentences.length > 0 ? matchedSentences.join(' ') : ch.text
+          });
+        }
+      }
+
+      scored.sort((a, b) => b.score - a.score || b.coverage - a.coverage);
+      // Lead with the strongest passage from each file, then fill remaining slots by relevance.
+      const topResults = [];
+      const seenDocs = new Set();
+      for (const item of scored) {
+        if (seenDocs.has(item.chunk.docId)) continue;
+        topResults.push(item);
+        seenDocs.add(item.chunk.docId);
+        if (topResults.length >= state.maxChunks) break;
+      }
+      if (topResults.length < state.maxChunks) {
+        for (const item of scored) {
+          if (topResults.includes(item)) continue;
+          topResults.push(item);
+          if (topResults.length >= state.maxChunks) break;
+        }
+      }
+
+      if (topResults.length === 0) {
+        return {
+          status: 'NO_MATCH_IN_DOCS',
+          queryTokens,
+          results: []
+        };
+      }
+
+      return {
+        status: 'MATCH_FOUND',
+        queryTokens,
+        results: topResults
+      };
+    }
+
+    function highlightTerms(text, matchedTokens) {
+      let safe = escapeHtml(text);
+      if (!matchedTokens || matchedTokens.length === 0) return safe;
+      const sorted = [...new Set(matchedTokens)]
+        .filter(t => t.length >= 2)
+        .sort((a, b) => b.length - a.length);
+      if (sorted.length === 0) return safe;
+
+      const pattern = sorted.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+      const regex = new RegExp(`\\b(${pattern})(?:s|es|ed|ing)?\\b`, 'gi');
+      return safe.replace(regex, '<mark class="hl">$&</mark>');
+    }
+
+    async function callStrictGeminiSynthesis(userQuery, topResults, apiKey, priorQuestion = '') {
+      const contextBlocks = topResults
+        .map(
+          (r, idx) => {
+            const meta = getSourceMetadata(r);
+            return `[SOURCE ${idx + 1} | File: "${r.chunk.docName}" | Circular Number: ${meta.circular} | Date: ${meta.date} | Point: ${meta.point} | Page: ${meta.page} | Section: "${r.chunk.heading}"]\n${r.chunk.text}`;
+          }
+        )
+        .join('\n\n');
+
+      const systemInstruction = [
+        'You are VaultRAG, a strict zero-hallucination document assistant.',
+        'RULES:',
+        '1. Answer the user query STRICTLY and EXCLUSIVELY using the facts stated in the PROVIDED SOURCES below.',
+        '2. Do NOT use outside knowledge, assumptions, extrapolations, or web search under any circumstances.',
+        '3. If the PROVIDED SOURCES do not explicitly contain the answer to the user query, reply with the exact sentence: "I cannot answer this question because the requested information is not present in the uploaded documents."',
+        '4. Compare relevant evidence across all provided source files. Point out agreement or differences only when the source text supports them.',
+        '5. Reply as a concise numbered list, one distinct fact or comparison per point. Do not write a paragraph.',
+        '6. For every supporting file, report Circular Number, Date, relevant point/clause, and page number when present in the source. If a field is absent, say "Not stated in source"; never infer it.',
+        '7. Cite the exact source filename in brackets after every statement.',
+        '8. If a previous user question is provided, use it only to resolve references in the current question. Never treat earlier assistant replies or the previous question itself as evidence.'
+      ].join('\n');
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemInstruction }] },
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  {
+                    text: `PROVIDED SOURCES:\n${contextBlocks}\n\nPREVIOUS USER QUESTION (context only): ${priorQuestion || 'None'}\nCURRENT USER QUESTION TO ANSWER: ${userQuery}`
+                  }
+                ]
+              }
+            ],
+            generationConfig: {
+              temperature: 0.0,
+              topP: 0.1,
+              maxOutputTokens: 450
+            }
+          })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`API HTTP ${response.status}`);
+      }
+      const data = await response.json();
+      const candidateText =
+        data?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
+      if (!candidateText.trim()) {
+        throw new Error('Empty response from API');
+      }
+      return candidateText.trim();
+    }
+
+    async function handleUserQuery(rawQuery) {
+      const query = String(rawQuery || '').trim();
+      if (!query) return;
+
+      const previousUserQuestion = [...state.messages].reverse().find(m => m.role === 'user')?.text || '';
+      const followUpPattern = /\b(this|that|it|its|they|them|these|those|same|also|more|their|there|such)\b|^(what about|how about|and\b|also\b|what is the date|which circular|where is it)\b/i;
+      const isFollowUp = Boolean(previousUserQuestion) && (tokenizeQuery(query).length <= 5 || followUpPattern.test(query));
+      const contextQuestion = isFollowUp ? previousUserQuestion : '';
+
+      state.messages.push({
+        id: 'msg_' + Date.now() + '_u',
+        role: 'user',
+        text: query,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      });
+      renderMessages();
+
+      const retrieval = retrieveStrictPassages(query, contextQuestion);
+
+      if (retrieval.status === 'NO_ACTIVE_DOCS') {
+        state.messages.push({
+          id: 'msg_' + Date.now() + '_b',
+          role: 'bot',
+          status: 'REFUSED_NO_DOCS',
+          query,
+          contextQuestion,
+          refusalReason:
+            'No active documents are currently available in the Knowledge Base. Please contact an administrator to sign in at the Admin URL and upload official files.',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        });
+        renderMessages();
+        return;
+      }
+
+      if (retrieval.status === 'NO_MEANINGFUL_QUERY' || retrieval.status === 'NO_MATCH_IN_DOCS') {
+        const searchedFiles = state.documents.filter(d => d.active).map(d => d.name);
+        state.messages.push({
+          id: 'msg_' + Date.now() + '_b',
+          role: 'bot',
+          status: 'REFUSED_OUT_OF_SCOPE',
+          query,
+          contextQuestion,
+          searchedFiles,
+          queryTokens: retrieval.queryTokens.map(t => t.raw),
+          refusalReason:
+            'I cannot answer this request. No matching information was found in the admin-uploaded documents, and web search / external world knowledge are strictly disabled to prevent hallucination.',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        });
+        renderMessages();
+        return;
+      }
+
+      let synthesizedReply = null;
+      let usedMode = 'Extractive Verbatim Lock';
+
+      if (!state.verbatimOnly && state.geminiApiKey.trim()) {
+        try {
+          synthesizedReply = await callStrictGeminiSynthesis(
+            query,
+            retrieval.results,
+            state.geminiApiKey.trim(),
+            contextQuestion
+          );
+          usedMode = 'Gemini 2.5 Flash (Temp 0.0 Context-Locked)';
+        } catch (err) {
+          usedMode = 'Extractive Verbatim Lock (API Fallback)';
+        }
+      }
+
+      state.messages.push({
+        id: 'msg_' + Date.now() + '_b',
+        role: 'bot',
+        status: 'GROUNDED_ANSWER',
+        query,
+        contextQuestion,
+        usedMode,
+        synthesizedReply,
+        results: retrieval.results,
+        queryTokens: retrieval.queryTokens.map(t => t.raw),
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      });
+
+      renderMessages();
+    }
+
+    async function extractTextFromUploadedFile(file) {
+      const ext = (file.name.split('.').pop() || '').toLowerCase();
+
+      if (ext === 'pdf') {
+        if (!window.pdfjsLib) {
+          throw new Error('PDF parser library is still loading. Please try again.');
+        }
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const pageTexts = [];
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+          const page = await pdf.getPage(pageNum);
+          const content = await page.getTextContent();
+          const strings = content.items.map(item => item.str);
+          pageTexts.push(`PAGE ${pageNum}\n` + strings.join(' '));
+        }
+        return { type: 'PDF', text: pageTexts.join('\n\n') };
+      }
+
+      if (ext === 'docx') {
+        if (!window.mammoth) {
+          throw new Error('DOCX parser library is still loading. Please try again.');
+        }
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await window.mammoth.extractRawText({ arrayBuffer });
+        return { type: 'DOCX', text: result.value || '' };
+      }
+
+      if (ext === 'json') {
+        const raw = await file.text();
+        try {
+          const parsed = JSON.parse(raw);
+          return { type: 'JSON', text: JSON.stringify(parsed, null, 2) };
+        } catch (e) {
+          return { type: 'JSON', text: raw };
+        }
+      }
+
+      const text = await file.text();
+      return { type: ext.toUpperCase() || 'TXT', text };
+    }
+
+    async function handleFilesSelected(fileList) {
+      if (!state.isAdminAuthenticated) {
+        showToast('Access Denied: Only authenticated Administrators can upload files.');
+        openAdminLoginModal('admin');
+        return;
+      }
+      if (!fileList || fileList.length === 0) return;
+      let addedCount = 0;
+
+      for (const file of Array.from(fileList)) {
+        try {
+          const { type, text } = await extractTextFromUploadedFile(file);
+          if (!text || !text.trim()) {
+            showToast(`Skipped "${file.name}" (no readable text found)`);
+            continue;
+          }
+          const newDoc = createIndexedDocument({
+            id: 'doc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            name: file.name,
+            type,
+            active: true,
+            uploadedAt: 'Uploaded by Admin',
+            content: text
+          });
+          state.documents.unshift(newDoc);
+          addedCount++;
+        } catch (err) {
+          showToast(`Could not parse "${file.name}": ${err.message}`);
+        }
+      }
+
+      if (addedCount > 0) {
+        saveStateToStorage();
+        renderAll();
+        showToast(`Admin indexed ${addedCount} file${addedCount > 1 ? 's' : ''} & updated User Widget code`);
+      }
+    }
+
+    function saveStateToStorage() {
+      try {
+        const payload = {
+          adminUsername: state.adminUsername,
+          adminPassword: state.adminPassword,
+          documents: state.documents.map(d => ({
+            id: d.id,
+            name: d.name,
+            type: d.type,
+            active: d.active,
+            uploadedAt: d.uploadedAt,
+            content: d.content
+          })),
+          strictness: state.strictness,
+          maxChunks: state.maxChunks,
+          verbatimOnly: state.verbatimOnly
+        };
+        localStorage.setItem('vaultrag_state_v2', JSON.stringify(payload));
+      } catch (e) {
+        // Ignore storage errors
+      }
+    }
+
+    function loadStateFromStorage() {
+      try {
+        const raw = localStorage.getItem('vaultrag_state_v2') || localStorage.getItem('vaultrag_state_v1');
+        if (!raw) return false;
+        const parsed = JSON.parse(raw);
+        if (parsed.adminUsername) state.adminUsername = String(parsed.adminUsername);
+        if (parsed.adminPassword) state.adminPassword = String(parsed.adminPassword);
+        if (Array.isArray(parsed.documents) && parsed.documents.length > 0) {
+          state.documents = parsed.documents.map(d => createIndexedDocument(d));
+          if (parsed.strictness) state.strictness = parsed.strictness;
+          if (parsed.maxChunks) state.maxChunks = Number(parsed.maxChunks);
+          if (typeof parsed.verbatimOnly === 'boolean') state.verbatimOnly = parsed.verbatimOnly;
+          return true;
+        }
+      } catch (e) {
+        // Ignore storage errors
+      }
+      return false;
+    }
+
+    function openAdminLoginModal(targetView) {
+      state.pendingAdminTargetView = targetView || 'admin';
+      const modal = document.getElementById('adminLoginModal');
+      const errBanner = document.getElementById('loginErrorBanner');
+      const userInp = document.getElementById('adminUsernameInput');
+      const passInp = document.getElementById('adminPasswordInput');
+      document.getElementById('hintAdminUser').textContent = state.adminUsername;
+      document.getElementById('hintAdminPass').textContent = state.adminPassword;
+      errBanner.classList.add('hidden');
+      userInp.value = '';
+      passInp.value = '';
+      modal.classList.remove('hidden');
+      setTimeout(() => userInp.focus(), 50);
+    }
+
+    function closeAdminLoginModal() {
+      document.getElementById('adminLoginModal').classList.add('hidden');
+    }
+
+    // Generate Live Embeddable User Widget Code (with current active admin docs baked in + localStorage sync)
+    function generateUserWidgetSnippet() {
+      const activeDocsPayload = state.documents
+        .filter(d => d.active)
+        .map(d => ({ name: d.name, content: d.content }));
+      const docsJson = JSON.stringify(activeDocsPayload);
+
+      return [
+        '<!-- ================= VAULTRAG USER FLOATING CHATBOT WIDGET ================= -->',
+        '<!-- Paste this snippet right before </body> on your user-facing website.      -->',
+        '<!-- Features: Floating button -> opens compact popup with input & display.    -->',
+        '<!-- Strictly searches admin-uploaded files only. No upload UI, no web search. -->',
+        '<div id="vaultrag-user-widget"></div>',
+        '<script>',
+        '(function() {',
+        '  const STORAGE_KEY = "vaultrag_state_v2";',
+        '  const FALLBACK_DOCS = ' + docsJson + ';',
+        '  const STOP = new Set(["a","an","the","is","are","was","were","be","have","has","do","does","of","in","to","for","with","on","at","from","by","what","which","who","how","when","where","why","and","or","not","tell","me","please"]);',
+        '',
+        '  function norm(w) {',
+        '    w = w.toLowerCase().replace(/[^a-z0-9]/g, "");',
+        '    if (w.length > 4 && w.endsWith("ing")) return w.slice(0, -3);',
+        '    if (w.length > 3 && w.endsWith("ed")) return w.slice(0, -2);',
+        '    if (w.length > 3 && w.endsWith("s") && !w.endsWith("ss")) return w.slice(0, -1);',
+        '    return w;',
+        '  }',
+        '  function nearDocTerm(word, terms) {',
+        '    if (word.length < 4) return false;',
+        '    for (const term of terms) {',
+        '      if (term.length < 4 || Math.abs(term.length - word.length) > 1) continue;',
+        '      let i = 0, j = 0, edits = 0;',
+        '      while (i < word.length && j < term.length) {',
+        '        if (word[i] === term[j]) { i++; j++; continue; }',
+        '        if (++edits > 1) break;',
+        '        if (word.length > term.length) i++; else if (term.length > word.length) j++; else { i++; j++; }',
+        '      }',
+        '      edits += (word.length - i) + (term.length - j);',
+        '      if (edits <= 1) return true;',
+        '    }',
+        '    return false;',
+        '  }',
+        '  function tokenize(txt) {',
+        '    return String(txt || "").toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length >= 2 && !STOP.has(w));',
+        '  }',
+        '  function getActiveDocs() {',
+        '    try {',
+        '      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");',
+        '      if (saved && Array.isArray(saved.documents)) {',
+        '        return saved.documents.filter(d => d.active !== false);',
+        '      }',
+        '    } catch (e) {}',
+        '    return FALLBACK_DOCS;',
+        '  }',
+        '  function searchDocsStrict(query, priorQuestion) {',
+        '    const docs = getActiveDocs();',
+        '    if (!docs.length) return { ok: false, msg: "No active documents uploaded by Admin." };',
+        '    const qWords = tokenize(query);',
+        '    if (!qWords.length) return { ok: false, msg: "Please enter a specific question about the uploaded documents." };',
+        '    const qNorms = new Set(qWords.map(norm));',
+        '    const contextWords = tokenize(priorQuestion).map(norm).filter(w => !qNorms.has(w));',
+        '    const matches = [];',
+        '    docs.forEach(doc => {',
+        '      const paras = String(doc.content || "").split(/\\n\\s*\\n+/).map(p => p.trim()).filter(Boolean);',
+        '      paras.forEach(p => {',
+        '        const pLow = p.toLowerCase();',
+        '        const pSet = new Set(tokenize(p).map(norm));',
+        '        const hits = qWords.filter(qw => pLow.includes(qw) || pSet.has(norm(qw)) || nearDocTerm(norm(qw), pSet));',
+        '        const contextHits = contextWords.filter(w => pSet.has(w) || nearDocTerm(w, pSet)).length;',
+        '        if (hits.length > 0 && (hits.length / qWords.length >= 0.4 || (qWords.length === 1 && hits.length === 1))) {',
+        '          const phraseBonus = query.toLowerCase().includes(p.toLowerCase()) ? 2 : 0;',
+        '          const coverage = hits.length / qWords.length;',
+        '          const circular = (String(doc.content || "").match(/\\b(?:circular|circ\\.)\\s*(?:no\\.?|number|#)\\s*[:\\-]?\\s*([A-Z0-9][A-Z0-9\\/.-]*)/i) || [])[1] || "Not stated in source";',
+        '          const date = (String(doc.content || "").match(/\\b(?:\\d{1,2}[\\/.-]\\d{1,2}[\\/.-]\\d{2,4}|\\d{4}-\\d{2}-\\d{2}|\\d{1,2}\\s+[A-Z][a-z]+\\s+\\d{4})\\b/) || [])[0] || "Not stated in source";',
+        '          const point = (p.match(/\\b(?:point|para(?:graph)?|clause|item)\\s*(?:no\\.?|number|#)?\\s*([0-9]+(?:\\.[0-9]+)*(?:\\([a-z0-9]+\\))?)/i) || [])[1] || "Not numbered in source";',
+        '          const page = (p.match(/\\bPAGE\\s+(\\d+)/i) || [])[1] || "Not available in source";',
+        '          matches.push({ doc: doc.name, text: p.replace(/^PAGE\\s+\\d+\\s*/i, ""), circular, date, point, page, score: hits.length + coverage + phraseBonus + contextHits * 0.35 });',
+        '        }',
+        '      });',
+        '    });',
+        '    matches.sort((a, b) => b.score - a.score);',
+        '    if (!matches.length) {',
+        '      return { ok: false, msg: "I cannot answer this request. No matching information was found in the uploaded files (Web search is disabled)." };',
+        '    }',
+        '    const top = [], seen = new Set();',
+        '    matches.forEach(m => { if (!seen.has(m.doc) && top.length < 6) { top.push(m); seen.add(m.doc); } });',
+        '    matches.forEach(m => { if (!top.includes(m) && top.length < 6) top.push(m); });',
+        '    return { ok: true, top };',
+        '  }',
+        '',
+        '  const root = document.getElementById("vaultrag-user-widget");',
+        '  root.innerHTML = `',
+        '    <style>',
+        '      #vrag-box { position:fixed; bottom:80px; right:20px; width:350px; height:450px; background:#fff; border:1px solid #e2e8f0; border-radius:16px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.15); display:none; flex-direction:column; overflow:hidden; font-family:system-ui,sans-serif; z-index:99999; }',
+        '      #vrag-hdr { background:#4f46e5; color:#fff; padding:12px 14px; font-size:13px; font-weight:700; display:flex; justify-content:space-between; align-items:center; }',
+        '      #vrag-msgs { flex:1; padding:12px; overflow-y:auto; background:#f8fafc; font-size:12px; display:flex; flex-direction:column; gap:8px; }',
+        '      #vrag-form { display:flex; gap:6px; padding:10px; border-top:1px solid #e2e8f0; background:#fff; }',
+        '      #vrag-inp { flex:1; padding:8px 10px; border:1px solid #cbd5e1; border-radius:10px; font-size:12px; outline:none; }',
+        '      #vrag-send { background:#4f46e5; color:#fff; border:none; border-radius:10px; padding:8px 12px; font-size:12px; font-weight:600; cursor:pointer; }',
+        '      #vrag-btn { position:fixed; bottom:20px; right:20px; background:#4f46e5; color:#fff; border:none; border-radius:999px; padding:12px 18px; font-size:13px; font-weight:700; box-shadow:0 10px 15px -3px rgba(79,70,229,0.4); cursor:pointer; z-index:99999; }',
+        '    </style>',
+        '    <div id="vrag-box">',
+        '      <div id="vrag-hdr"><span>Document Assistant (Strict Mode)</span><button id="vrag-close" style="background:none;border:none;color:#fff;cursor:pointer;font-size:16px;">&times;</button></div>',
+        '      <div id="vrag-msgs"><div style="background:#fff;padding:10px;border-radius:10px;border:1px solid #e2e8f0;color:#334155;">Ask a question below. I reply strictly from admin-uploaded files and never search the web.</div></div>',
+        '      <form id="vrag-form"><input id="vrag-inp" type="text" placeholder="Type your question..." required /><button id="vrag-send" type="submit">Send</button></form>',
+        '    </div>',
+        '    <button id="vrag-btn">Chat with Documents</button>',
+        '  `;',
+        '  const box = document.getElementById("vrag-box");',
+        '  const btn = document.getElementById("vrag-btn");',
+        '  const close = document.getElementById("vrag-close");',
+        '  const form = document.getElementById("vrag-form");',
+        '  const inp = document.getElementById("vrag-inp");',
+        '  const msgs = document.getElementById("vrag-msgs");',
+        '  let previousUserQuestion = "";',
+        '  btn.onclick = () => { box.style.display = box.style.display === "flex" ? "none" : "flex"; if (box.style.display === "flex") inp.focus(); };',
+        '  close.onclick = () => { box.style.display = "none"; };',
+        '  form.onsubmit = (e) => {',
+        '    e.preventDefault();',
+        '    const q = inp.value.trim(); if (!q) return; inp.value = "";',
+        '    const uDiv = document.createElement("div");',
+        '    uDiv.style.cssText = "align-self:flex-end;background:#4f46e5;color:#fff;padding:8px 11px;border-radius:12px;max-width:82%;";',
+        '    uDiv.textContent = q; msgs.appendChild(uDiv);',
+        '    const res = searchDocsStrict(q, previousUserQuestion);',
+        '    previousUserQuestion = q;',
+        '    const bDiv = document.createElement("div");',
+        '    if (!res.ok) {',
+        '      bDiv.style.cssText = "align-self:flex-start;background:#fff1f2;color:#9f1239;border:1px solid #fecdd3;padding:9px 11px;border-radius:12px;max-width:90%;";',
+        '      bDiv.textContent = res.msg;',
+        '    } else {',
+        '      bDiv.style.cssText = "align-self:flex-start;background:#fff;color:#0f172a;border:1px solid #e2e8f0;padding:9px 11px;border-radius:12px;max-width:90%;";',
+        '      bDiv.innerHTML = `<ol style="padding-left:20px;">${res.top.map(m => `<li style="margin-bottom:8px;"><b>${m.doc}</b><div style="font-size:10px;color:#475569;">Circular: ${m.circular} · Date: ${m.date} · Point: ${m.point} · Page: ${m.page}</div><div>${m.text}</div></li>`).join("")}</ol>`;',
+        '    }',
+        '    msgs.appendChild(bDiv); msgs.scrollTop = msgs.scrollHeight;',
+        '  };',
+        '})();',
+        '<\/script>'
+      ].join('\n');
+    }
+
+    // Generate Separate Standalone Admin Portal HTML Code
+    function generateAdminPortalHtml() {
+      return [
+        '<!DOCTYPE html>',
+        '<html lang="en">',
+        '<head>',
+        '  <meta charset="UTF-8" />',
+        '  <title>VaultRAG — Separate Admin Upload Portal</title>',
+        '  <script src="https://cdn.tailwindcss.com/3.4.17"><\/script>',
+        '</head>',
+        '<body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-6 font-sans">',
+        '  <!-- Separate Admin Portal (Host at /admin-portal.html) -->',
+        '  <div class="max-w-xl w-full bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-2xl space-y-5">',
+        '    <div class="flex items-center justify-between border-b border-slate-700 pb-4">',
+        '      <div>',
+        '        <h1 class="text-lg font-bold text-white">VaultRAG Admin Upload Portal</h1>',
+        '        <p class="text-xs text-slate-400">Separate Admin URL — Uploads sync directly to the User Chat Widget</p>',
+        '      </div>',
+        '      <span id="statusBadge" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300">Locked</span>',
+        '    </div>',
+        '',
+        '    <!-- Step 1: Admin Login Form -->',
+        '    <form id="loginForm" class="space-y-3">',
+        '      <div>',
+        '        <label class="block text-xs text-slate-300 mb-1">Admin Username</label>',
+        '        <input id="uInp" type="text" placeholder="admin" required class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-white" />',
+        '      </div>',
+        '      <div>',
+        '        <label class="block text-xs text-slate-300 mb-1">Admin Password</label>',
+        '        <input id="pInp" type="password" placeholder="Admin@2026" required class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-white" />',
+        '      </div>',
+        '      <button type="submit" class="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-semibold text-white">Sign In as Admin</button>',
+        '    </form>',
+        '',
+        '    <!-- Step 2: Protected File Upload Console (Hidden until authenticated) -->',
+        '    <div id="adminConsole" class="hidden space-y-4">',
+        '      <div class="p-4 rounded-xl border-2 border-dashed border-slate-600 text-center space-y-2">',
+        '        <input id="adminFileInp" type="file" multiple accept=".txt,.md,.csv,.json" class="block w-full text-xs text-slate-300" />',
+        '        <p class="text-[11px] text-slate-400">Uploaded files are stored in shared browser storage (vaultrag_state_v2) for the User Widget.</p>',
+        '      </div>',
+        '      <div id="docList" class="space-y-2 text-xs"></div>',
+        '    </div>',
+        '  </div>',
+        '  <script>',
+        '    const STORAGE_KEY = "vaultrag_state_v2";',
+        '    const state = JSON.parse(localStorage.getItem(STORAGE_KEY) || \'{"adminUsername":"admin","adminPassword":"Admin@2026","documents":[]}\');',
+        '    document.getElementById("loginForm").onsubmit = (e) => {',
+        '      e.preventDefault();',
+        '      if (document.getElementById("uInp").value === state.adminUsername && document.getElementById("pInp").value === state.adminPassword) {',
+        '        document.getElementById("loginForm").classList.add("hidden");',
+        '        document.getElementById("adminConsole").classList.remove("hidden");',
+        '        document.getElementById("statusBadge").textContent = "Admin Authenticated";',
+        '        renderDocs();',
+        '      } else { document.getElementById("statusBadge").textContent = "Invalid Login"; }',
+        '    };',
+        '    document.getElementById("adminFileInp").onchange = async (e) => {',
+        '      for (const f of Array.from(e.target.files)) {',
+        '        const text = await f.text();',
+        '        state.documents.unshift({ id: "d_" + Date.now(), name: f.name, active: true, content: text });',
+        '      }',
+        '      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));',
+        '      renderDocs();',
+        '    };',
+        '    function renderDocs() {',
+        '      document.getElementById("docList").innerHTML = state.documents.map(d => `<div class="p-2.5 rounded bg-slate-900 border border-slate-700 flex justify-between"><span>${d.name}</span><span class="text-emerald-400">Indexed</span></div>`).join("");',
+        '    }',
+        '  <\/script>',
+        '</body>',
+        '</html>'
+      ].join('\n');
+    }
+
+    function renderEmbedCodes() {
+      const userPre = document.getElementById('userWidgetCodePre');
+      const adminPre = document.getElementById('adminPortalCodePre');
+      if (userPre) userPre.textContent = generateUserWidgetSnippet();
+      if (adminPre) adminPre.textContent = generateAdminPortalHtml();
+    }
+
+    function renderViewLayout() {
+      const widgetDemoSection = document.getElementById('widgetDemoSection');
+      const embedCodeSection = document.getElementById('embedCodeSection');
+      const adminSection = document.getElementById('adminSection');
+      const chatSection = document.getElementById('chatSection');
+
+      const tabWidgetBtn = document.getElementById('tabWidgetBtn');
+      const tabEmbedBtn = document.getElementById('tabEmbedBtn');
+      const tabChatBtn = document.getElementById('tabChatBtn');
+      const tabAdminBtn = document.getElementById('tabAdminBtn');
+      const tabSplitBtn = document.getElementById('tabSplitBtn');
+
+      const openQuickUploadBtn = document.getElementById('openQuickUploadBtn');
+      const logoutAdminBtn = document.getElementById('logoutAdminBtn');
+      const roleStatusBadge = document.getElementById('roleStatusBadge');
+      const currentUrlBadge = document.getElementById('currentUrlBadge');
+      const adminTabLabel = document.getElementById('adminTabLabel');
+      const adminTabLockIcon = document.getElementById('adminTabLockIcon');
+      const currentAdminUserLabel = document.getElementById('currentAdminUserLabel');
+
+      if (!state.isAdminAuthenticated && (state.viewMode === 'admin' || state.viewMode === 'split')) {
+        state.viewMode = 'widget';
+      }
+
+      if (currentAdminUserLabel) {
+        currentAdminUserLabel.textContent = `ID: ${state.adminUsername}`;
+      }
+
+      // Simulated URL bar indicator
+      if (state.viewMode === 'admin' || state.viewMode === 'split') {
+        currentUrlBadge.textContent = 'URL: https://yourwebsite.com/admin-portal.html (#/admin)';
+        currentUrlBadge.className =
+          'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] mono font-semibold bg-amber-50 text-amber-800 border border-amber-300';
+      } else if (state.viewMode === 'embed') {
+        currentUrlBadge.textContent = 'Deployment Code Generator (User Widget + Separate Admin HTML)';
+        currentUrlBadge.className =
+          'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] mono font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200';
+      } else {
+        currentUrlBadge.textContent = 'URL: https://yourwebsite.com/ (User Page — Upload Hidden)';
+        currentUrlBadge.className =
+          'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] mono font-semibold bg-slate-100 text-slate-700 border border-slate-300';
+      }
+
+      if (state.isAdminAuthenticated) {
+        roleStatusBadge.className =
+          'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200';
+        roleStatusBadge.textContent = `Admin Logged In (${state.adminUsername})`;
+        adminTabLabel.textContent = 'Admin Panel';
+        adminTabLockIcon.setAttribute('class', 'w-3.5 h-3.5 text-emerald-600');
+        openQuickUploadBtn.className =
+          'px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition flex items-center gap-1.5';
+        logoutAdminBtn.className =
+          'px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-sm transition flex items-center gap-1.5';
+      } else {
+        roleStatusBadge.className =
+          'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-300';
+        roleStatusBadge.textContent = 'Mode: Standard User (Upload Locked)';
+        adminTabLabel.textContent = 'Admin Panel (Locked)';
+        adminTabLockIcon.setAttribute('class', 'w-3.5 h-3.5 text-amber-600');
+        openQuickUploadBtn.className = 'hidden';
+        logoutAdminBtn.className = 'hidden';
+      }
+
+      const activeClass =
+        'px-3 py-1.5 rounded-md text-xs font-semibold transition-all bg-white text-slate-900 shadow-sm flex items-center gap-1.5';
+      const inactiveClass =
+        'px-3 py-1.5 rounded-md text-xs font-semibold transition-all text-slate-600 hover:text-slate-900 flex items-center gap-1.5';
+
+      tabWidgetBtn.className = state.viewMode === 'widget' ? activeClass : inactiveClass;
+      tabEmbedBtn.className = state.viewMode === 'embed' ? activeClass : inactiveClass;
+      tabChatBtn.className = state.viewMode === 'chat' ? activeClass : inactiveClass;
+      tabAdminBtn.className = state.viewMode === 'admin' ? activeClass : inactiveClass;
+
+      if (tabSplitBtn) {
+        if (state.isAdminAuthenticated) {
+          tabSplitBtn.className =
+            (state.viewMode === 'split' ? activeClass : inactiveClass) + ' hidden lg:flex';
+        } else {
+          tabSplitBtn.className = 'hidden';
+        }
+      }
+
+      // Hide all sections first
+      widgetDemoSection.className = 'hidden';
+      embedCodeSection.className = 'hidden';
+      adminSection.className = 'hidden';
+      chatSection.className = 'hidden';
+
+      if (state.viewMode === 'widget') {
+        widgetDemoSection.className = 'flex-1 bg-slate-100 overflow-y-auto p-6 relative';
+      } else if (state.viewMode === 'embed') {
+        embedCodeSection.className = 'flex-1 bg-slate-50 overflow-y-auto p-6';
+        renderEmbedCodes();
+      } else if (state.viewMode === 'chat') {
+        chatSection.className = 'flex-1 flex flex-col h-full bg-slate-50 overflow-hidden';
+      } else if (state.viewMode === 'admin') {
+        adminSection.className =
+          'w-full bg-white flex flex-col h-full overflow-y-auto shrink-0 max-w-4xl mx-auto border-x border-slate-200';
+      } else if (state.viewMode === 'split') {
+        adminSection.className =
+          'w-full lg:w-[430px] xl:w-[470px] bg-white border-r border-slate-200 flex flex-col h-full overflow-y-auto shrink-0';
+        chatSection.className = 'flex-1 flex flex-col h-full bg-slate-50 overflow-hidden';
+      }
+
+      // Floating Popup Box open/close state
+      const popupBox = document.getElementById('floatingPopupBox');
+      const launcherBtnText = document.getElementById('launcherBtnText');
+      if (popupBox && launcherBtnText) {
+        if (state.isWidgetPopupOpen) {
+          popupBox.classList.remove('hidden');
+          launcherBtnText.textContent = 'Minimize Chat';
+        } else {
+          popupBox.classList.add('hidden');
+          launcherBtnText.textContent = 'Ask Document Bot';
+        }
+      }
+    }
+
+    function renderDocumentLists() {
+      const container = document.getElementById('fileListContainer');
+      const pillsContainer = document.getElementById('activeDocsPills');
+      const badge = document.getElementById('adminDocCountBadge');
+      const totalChunksStat = document.getElementById('totalChunksStat');
+      const widgetActiveCountSub = document.getElementById('widgetActiveCountSub');
+
+      const activeDocs = state.documents.filter(d => d.active);
+      const totalChunks = activeDocs.reduce((sum, d) => sum + d.chunks.length, 0);
+
+      badge.textContent = String(activeDocs.length);
+      totalChunksStat.textContent = `${totalChunks} chunk${totalChunks === 1 ? '' : 's'} active`;
+      if (widgetActiveCountSub) {
+        widgetActiveCountSub.textContent = `${activeDocs.length} Admin File${activeDocs.length === 1 ? '' : 's'} Active • No Web Search`;
+      }
+
+      if (state.documents.length === 0) {
+        container.innerHTML = `
+          <div class="p-4 rounded-xl border border-dashed border-slate-300 text-center bg-slate-50">
+            <p class="text-xs font-semibold text-slate-700">No documents uploaded</p>
+            <p class="text-[11px] text-slate-500 mt-0.5">Upload a file above or click "Restore Samples" to test.</p>
+          </div>
+        `;
+      } else {
+        container.innerHTML = state.documents
+          .map(doc => {
+            const statusClasses = doc.active
+              ? 'border-indigo-200 bg-white'
+              : 'border-slate-200 bg-slate-100 opacity-70';
+            return `
+              <div class="p-3 rounded-xl border ${statusClasses} shadow-2xs transition flex flex-col gap-2">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="flex items-start gap-2.5 min-w-0">
+                    <input
+                      type="checkbox"
+                      data-action="toggle-doc"
+                      data-id="${escapeHtml(doc.id)}"
+                      ${doc.active ? 'checked' : ''}
+                      class="mt-1 rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
+                      title="Enable or disable this file from bot search"
+                    />
+                    <div class="min-w-0">
+                      <p class="text-xs font-bold text-slate-900 truncate" title="${escapeHtml(doc.name)}">${escapeHtml(doc.name)}</p>
+                      <div class="flex items-center flex-wrap gap-1.5 mt-0.5 text-[11px] text-slate-500">
+                        <span class="px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 font-semibold mono">${escapeHtml(doc.type)}</span>
+                        <span>${doc.chunks.length} chunks</span>
+                        <span>•</span>
+                        <span>${doc.wordCount} words</span>
+                        <span>•</span>
+                        <span>${escapeHtml(doc.uploadedAt)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      data-action="inspect-doc"
+                      data-id="${escapeHtml(doc.id)}"
+                      class="px-2 py-1 rounded text-[11px] font-medium text-indigo-600 hover:bg-indigo-50 transition"
+                    >
+                      Inspect
+                    </button>
+                    <button
+                      type="button"
+                      data-action="delete-doc"
+                      data-id="${escapeHtml(doc.id)}"
+                      class="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                      title="Remove document"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            `;
+          })
+          .join('');
+      }
+
+      if (activeDocs.length === 0) {
+        pillsContainer.innerHTML = `
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+            0 Active Files (Bot will refuse all queries)
+          </span>
+        `;
+      } else {
+        pillsContainer.innerHTML = activeDocs
+          .map(d => {
+            if (state.isAdminAuthenticated) {
+              return `
+                <button
+                  type="button"
+                  data-action="inspect-doc"
+                  data-id="${escapeHtml(d.id)}"
+                  class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition shrink-0"
+                >
+                  <span class="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
+                  <span class="truncate max-w-[180px]">${escapeHtml(d.name)}</span>
+                </button>
+              `;
+            }
+            return `
+              <span
+                class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 shrink-0"
+              >
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span class="truncate max-w-[180px]">${escapeHtml(d.name)}</span>
+              </span>
+            `;
+          })
+          .join('');
+      }
+    }
+
+    function renderSamplePrompts() {
+      const container = document.getElementById('samplePromptsContainer');
+      const widgetQuickPrompts = document.getElementById('widgetQuickPrompts');
+      const prompts = [
+        {
+          label: 'Vehicle loan limit for Scale-IV CM?',
+          query: 'What is the maximum vehicle loan sanction authority and margin for Scale-IV Chief Managers?',
+          type: 'in-doc'
+        },
+        {
+          label: '5 mandatory renewal documents?',
+          query: 'What are the 5 mandatory documents required for borrower limit renewal?',
+          type: 'in-doc'
+        },
+        {
+          label: 'Password rotation & lockout rule?',
+          query: 'How often must passwords be rotated and what happens after failed login attempts?',
+          type: 'in-doc'
+        },
+        {
+          label: 'Trap: Stock price of Apple? (Must Refuse)',
+          query: 'What is the current stock price of Apple and today weather in New York?',
+          type: 'trap'
+        }
+      ];
+
+      const html = prompts
+        .map(p => {
+          const style =
+            p.type === 'trap'
+              ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+              : 'bg-white text-slate-700 border-slate-300 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200';
+          return `
+            <button
+              type="button"
+              data-action="run-sample-prompt"
+              data-query="${escapeHtml(p.query)}"
+              class="px-2.5 py-1 rounded-full text-[11px] font-medium border transition shrink-0 ${style}"
+            >
+              ${escapeHtml(p.label)}
+            </button>
+          `;
+        })
+        .join('');
+
+      if (container) container.innerHTML = html;
+      if (widgetQuickPrompts) widgetQuickPrompts.innerHTML = html;
+    }
+
+    // Render both the Compact Floating Popup Messages AND the User Chat Stream
+    function renderMessages() {
+      const container = document.getElementById('chatMessages');
+      const widgetList = document.getElementById('widgetMessagesList');
+      const engineIndicator = document.getElementById('engineModeIndicator');
+
+      if (engineIndicator) {
+        engineIndicator.textContent =
+          !state.verbatimOnly && state.geminiApiKey.trim()
+            ? 'Engine: Gemini 2.5 Flash (Temp 0.0 Context-Locked)'
+            : 'Engine: Extractive Verbatim Lock (100% Deterministic)';
+      }
+
+      if (state.messages.length === 0) {
+        if (container) {
+          container.innerHTML = `
+            <div class="max-w-2xl mx-auto my-6 p-6 rounded-2xl bg-white border border-slate-200 shadow-2xs text-center space-y-3">
+              <h2 class="text-base font-bold text-slate-900">Strict File-Only Assistant Ready</h2>
+              <p class="text-xs text-slate-600 max-w-lg mx-auto leading-relaxed">
+                Ask any question below. The bot searches <strong>exclusively</strong> within administrator-uploaded files and refuses any question not backed by the repository.
+              </p>
+            </div>
+          `;
+        }
+        if (widgetList) {
+          widgetList.innerHTML = `
+            <div class="p-3 rounded-xl bg-white border border-slate-200 text-slate-700 leading-relaxed shadow-2xs">
+              Hi! Ask me anything about our official documents. I reply <strong>strictly</strong> from admin-uploaded files and never guess or search the web.
+            </div>
+          `;
+        }
+        return;
+      }
+
+      // Render Compact Floating Widget Messages
+      if (widgetList) {
+        widgetList.innerHTML = state.messages
+          .map(msg => {
+            if (msg.role === 'user') {
+              return `
+                <div class="flex justify-end">
+                  <div class="max-w-[85%] bg-indigo-600 text-white rounded-2xl rounded-tr-xs px-3 py-2 shadow-2xs">
+                    <p class="text-xs leading-relaxed">${escapeHtml(msg.text)}</p>
+                  </div>
+                </div>
+              `;
+            }
+
+            if (msg.status === 'REFUSED_NO_DOCS' || msg.status === 'REFUSED_OUT_OF_SCOPE') {
+              return `
+                <div class="flex justify-start">
+                  <div class="max-w-[92%] bg-rose-50 border border-rose-200 text-rose-900 rounded-2xl rounded-tl-xs p-2.5 space-y-1">
+                    <span class="inline-block text-[10px] font-bold uppercase tracking-wider text-rose-700">Refused • Not in Uploaded Files</span>
+                    <p class="text-xs leading-relaxed">${escapeHtml(msg.refusalReason)}</p>
+                  </div>
+                </div>
+              `;
+            }
+
+            const bodyHtml = msg.synthesizedReply
+              ? `<p class="text-xs text-slate-800 leading-relaxed whitespace-pre-line">${escapeHtml(msg.synthesizedReply)}</p>`
+              : msg.results
+                  .map((r, index) => {
+                    const meta = getSourceMetadata(r);
+                    return `
+                    <div class="space-y-0.5">
+                      <span class="block text-[10px] font-bold text-indigo-700">${index + 1}. ${escapeHtml(r.chunk.docName)} (${escapeHtml(r.chunk.heading)})</span>
+                      <span class="block text-[10px] text-slate-500">Circular ${escapeHtml(meta.circular)} · ${escapeHtml(meta.date)} · Point ${escapeHtml(meta.point)} · Page ${escapeHtml(meta.page)}</span>
+                      <p class="text-xs text-slate-800 leading-relaxed">${highlightTerms(r.extractedText, msg.queryTokens)}</p>
+                    </div>
+                  `;
+                  })
+                  .join('<hr class="my-1.5 border-slate-200" />');
+            const contextNote = msg.contextQuestion
+              ? `<p class="text-[10px] text-slate-500 border-b border-slate-100 pb-1">Follow-up context: “${escapeHtml(msg.contextQuestion)}”</p>`
+              : '';
+
+            return `
+              <div class="flex justify-start">
+                <div class="max-w-[92%] bg-white border border-slate-200 rounded-2xl rounded-tl-xs p-3 shadow-2xs space-y-1.5">
+                  <span class="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    Verified from Uploaded File
+                  </span>
+                  ${contextNote}
+                  ${bodyHtml}
+                </div>
+              </div>
+            `;
+          })
+          .join('');
+        widgetList.scrollTop = widgetList.scrollHeight;
+      }
+
+      // Render User Chat Messages
+      if (container) {
+        container.innerHTML = state.messages
+          .map(msg => {
+            if (msg.role === 'user') {
+              return `
+                <div class="flex justify-end">
+                  <div class="max-w-xl bg-indigo-600 text-white rounded-2xl rounded-tr-xs px-4 py-3 shadow-xs">
+                    <p class="text-sm leading-relaxed">${escapeHtml(msg.text)}</p>
+                    <span class="block text-[10px] text-indigo-200 mt-1 text-right">${escapeHtml(msg.timestamp)}</span>
+                  </div>
+                </div>
+              `;
+            }
+
+            if (msg.status === 'REFUSED_NO_DOCS' || msg.status === 'REFUSED_OUT_OF_SCOPE') {
+              return `
+                <div class="flex justify-start">
+                  <div class="max-w-2xl w-full bg-white border-2 border-rose-200 rounded-2xl rounded-tl-xs p-4 shadow-2xs space-y-2.5">
+                    <div class="flex items-center justify-between gap-2 flex-wrap">
+                      <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800">
+                        Strict Guardrail Refusal — Not Found in Uploaded Files
+                      </span>
+                      <span class="text-[11px] text-slate-400 mono">${escapeHtml(msg.timestamp)}</span>
+                    </div>
+                    <p class="text-sm text-slate-800 font-medium leading-relaxed">${escapeHtml(msg.refusalReason)}</p>
+                  </div>
+                </div>
+              `;
+            }
+
+            const primaryHtml = msg.synthesizedReply
+              ? `<ol class="list-decimal pl-5 space-y-2 text-sm text-slate-800">${msg.synthesizedReply.split(/\n+/).map(line => line.trim()).filter(Boolean).map(line => `<li>${escapeHtml(line.replace(/^\s*(?:\d+[.)]|[-*])\s*/, ''))}</li>`).join('')}</ol>`
+              : `<ol class="list-decimal pl-5 space-y-3">${msg.results
+                  .map(
+                    r => {
+                      const meta = getSourceMetadata(r);
+                      return `
+                    <li><div class="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
+                      <div class="flex items-center justify-between text-[11px] text-slate-500">
+                        <span class="font-semibold text-indigo-700">${escapeHtml(r.chunk.docName)} — ${escapeHtml(r.chunk.heading)}</span>
+                        <span class="mono">Chunk #${r.chunk.index} • Score ${r.score}</span>
+                      </div>
+                      <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-slate-600">
+                        <span><b>Circular:</b> ${escapeHtml(meta.circular)}</span><span><b>Date:</b> ${escapeHtml(meta.date)}</span>
+                        <span><b>Point:</b> ${escapeHtml(meta.point)}</span><span><b>Page:</b> ${escapeHtml(meta.page)}</span>
+                      </div>
+                      <p class="text-sm text-slate-900 leading-relaxed">${highlightTerms(r.extractedText, msg.queryTokens)}</p>
+                    </div></li>
+                  `;
+                    }
+                  )
+                  .join('')}</ol>`;
+
+            const citationsHtml = msg.results
+              .map(
+                    r => {
+                  const meta = getSourceMetadata(r);
+                  return `
+                <div class="p-2.5 rounded-lg bg-slate-100/80 border border-slate-200 text-xs space-y-1">
+                  <div class="flex items-center justify-between font-semibold text-slate-700">
+                    <span>Source File: ${escapeHtml(r.chunk.docName)} (${escapeHtml(r.chunk.heading)})</span>
+                    <span class="mono text-[11px] text-emerald-700">Matched: ${escapeHtml(r.matchedTokens.join(', '))}</span>
+                  </div>
+                  <p class="text-slate-600">Circular: ${escapeHtml(meta.circular)} · Date: ${escapeHtml(meta.date)} · Point: ${escapeHtml(meta.point)} · Page: ${escapeHtml(meta.page)}</p>
+                  <p class="text-slate-600 mono text-[11px] leading-relaxed">"${highlightTerms(r.chunk.text, msg.queryTokens)}"</p>
+                </div>
+              `;
+                }
+              )
+              .join('');
+
+            return `
+              <div class="flex justify-start">
+                <div class="max-w-2xl w-full bg-white border border-slate-200 rounded-2xl rounded-tl-xs p-4 shadow-2xs space-y-3">
+                  <div class="flex items-center justify-between gap-2 flex-wrap">
+                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      Verified from Admin-Uploaded File${msg.results.length > 1 ? 's' : ''}
+                    </span>
+                    <span class="text-[11px] text-slate-400 mono">${escapeHtml(msg.timestamp)}</span>
+                  </div>
+                  <div class="space-y-2.5">${primaryHtml}</div>
+                  ${msg.contextQuestion ? `<p class="text-[11px] text-slate-500">Follow-up context from your previous question: “${escapeHtml(msg.contextQuestion)}”</p>` : ''}
+                  <details class="group pt-2 border-t border-slate-100">
+                    <summary class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer select-none">
+                      Inspect Exact Source Chunks &amp; Keyword Audit (${msg.results.length})
+                    </summary>
+                    <div class="mt-2.5 space-y-2">${citationsHtml}</div>
+                  </details>
+                </div>
+              </div>
+            `;
+          })
+          .join('');
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+
+    function openDocInspector(docId) {
+      if (!state.isAdminAuthenticated) {
+        showToast('Admin authentication required to inspect document chunks');
+        openAdminLoginModal('admin');
+        return;
+      }
+      const doc = state.documents.find(d => d.id === docId);
+      if (!doc) return;
+      const modal = document.getElementById('docInspectorModal');
+      const title = document.getElementById('modalDocTitle');
+      const meta = document.getElementById('modalDocMeta');
+      const list = document.getElementById('modalChunksList');
+
+      title.textContent = doc.name;
+      meta.textContent = `${doc.type} • ${doc.chunks.length} indexed chunks • ${doc.wordCount} words • Status: ${doc.active ? 'Active in Search' : 'Disabled'}`;
+
+      list.innerHTML = doc.chunks
+        .map(
+          ch => `
+          <div class="p-3 rounded-xl bg-white border border-slate-200 space-y-1">
+            <div class="flex items-center justify-between text-[11px] font-semibold text-indigo-700">
+              <span>${escapeHtml(ch.heading)}</span>
+              <span class="mono text-slate-400">Chunk #${ch.index}</span>
+            </div>
+            <p class="text-xs text-slate-800 leading-relaxed whitespace-pre-line">${escapeHtml(ch.text)}</p>
+          </div>
+        `
+        )
+        .join('');
+
+      modal.classList.remove('hidden');
+    }
+
+    function renderAll() {
+      renderViewLayout();
+      renderDocumentLists();
+      renderSamplePrompts();
+      renderMessages();
+      renderEmbedCodes();
+    }
+
+    function initApp() {
+      const loaded = loadStateFromStorage();
+      if (!loaded) {
+        state.documents = DEFAULT_DOCS.map(d => createIndexedDocument(d));
+      }
+
+      // Check URL hash route (e.g. #/admin opens Separate Admin Portal login)
+      if (window.location.hash === '#/admin') {
+        openAdminLoginModal('admin');
+      }
+
+      window.addEventListener('hashchange', () => {
+        if (window.location.hash === '#/admin') {
+          if (!state.isAdminAuthenticated) {
+            openAdminLoginModal('admin');
+          } else {
+            state.viewMode = 'admin';
+            renderViewLayout();
+          }
+        }
+      });
+
+      const thresholdSelect = document.getElementById('thresholdSelect');
+      const maxChunksSelect = document.getElementById('maxChunksSelect');
+      const verbatimOnlyToggle = document.getElementById('verbatimOnlyToggle');
+      thresholdSelect.value = state.strictness;
+      maxChunksSelect.value = String(state.maxChunks);
+      verbatimOnlyToggle.checked = state.verbatimOnly;
+
+      // Navigation Tabs
+      document.getElementById('tabWidgetBtn').addEventListener('click', () => {
+        state.viewMode = 'widget';
+        renderViewLayout();
+      });
+
+      document.getElementById('tabEmbedBtn').addEventListener('click', () => {
+        state.viewMode = 'embed';
+        renderViewLayout();
+      });
+
+      document.getElementById('jumpToEmbedCodeBtn').addEventListener('click', () => {
+        state.viewMode = 'embed';
+        renderViewLayout();
+      });
+
+      document.getElementById('tabChatBtn').addEventListener('click', () => {
+        state.viewMode = 'chat';
+        renderViewLayout();
+      });
+
+      document.getElementById('tabAdminBtn').addEventListener('click', () => {
+        if (!state.isAdminAuthenticated) {
+          openAdminLoginModal('admin');
+          return;
+        }
+        state.viewMode = 'admin';
+        renderViewLayout();
+      });
+
+      document.getElementById('tabSplitBtn').addEventListener('click', () => {
+        if (!state.isAdminAuthenticated) {
+          openAdminLoginModal('split');
+          return;
+        }
+        state.viewMode = 'split';
+        renderViewLayout();
+      });
+
+      // Floating Widget Popup Controls
+      document.getElementById('floatingLauncherBtn').addEventListener('click', () => {
+        state.isWidgetPopupOpen = !state.isWidgetPopupOpen;
+        renderViewLayout();
+        if (state.isWidgetPopupOpen) {
+          setTimeout(() => document.getElementById('widgetQueryInput').focus(), 50);
+        }
+      });
+
+      document.getElementById('openPopupDemoBtn').addEventListener('click', () => {
+        state.isWidgetPopupOpen = !state.isWidgetPopupOpen;
+        renderViewLayout();
+      });
+
+      document.getElementById('widgetCloseBtn').addEventListener('click', () => {
+        state.isWidgetPopupOpen = false;
+        renderViewLayout();
+      });
+
+      document.getElementById('widgetClearBtn').addEventListener('click', () => {
+        state.messages = [];
+        renderMessages();
+      });
+
+      document.getElementById('widgetChatForm').addEventListener('submit', e => {
+        e.preventDefault();
+        const inp = document.getElementById('widgetQueryInput');
+        const q = inp.value;
+        inp.value = '';
+        handleUserQuery(q);
+      });
+
+      // Copy Code Buttons
+      document.getElementById('copyUserWidgetCodeBtn').addEventListener('click', () => {
+        copyTextToClipboard(
+          generateUserWidgetSnippet(),
+          'Copied User Webpage Floating Widget HTML code!'
+        );
+      });
+
+      document.getElementById('copyAdminPortalCodeBtn').addEventListener('click', () => {
+        copyTextToClipboard(
+          generateAdminPortalHtml(),
+          'Copied Separate Admin Portal HTML code!'
+        );
+      });
+
+      // Admin Login Modal Handlers
+      document.getElementById('closeLoginModalBtn').addEventListener('click', closeAdminLoginModal);
+      document.getElementById('cancelLoginBtn').addEventListener('click', closeAdminLoginModal);
+      document.getElementById('adminLoginModal').addEventListener('click', e => {
+        if (e.target.id === 'adminLoginModal') closeAdminLoginModal();
+      });
+
+      document.getElementById('fillDemoCredsBtn').addEventListener('click', () => {
+        document.getElementById('adminUsernameInput').value = state.adminUsername;
+        document.getElementById('adminPasswordInput').value = state.adminPassword;
+        document.getElementById('loginErrorBanner').classList.add('hidden');
+      });
+
+      document.getElementById('adminLoginForm').addEventListener('submit', e => {
+        e.preventDefault();
+        const enteredUser = (document.getElementById('adminUsernameInput').value || '').trim();
+        const enteredPass = document.getElementById('adminPasswordInput').value || '';
+
+        if (enteredUser === state.adminUsername && enteredPass === state.adminPassword) {
+          state.isAdminAuthenticated = true;
+          state.viewMode = state.pendingAdminTargetView || 'admin';
+          closeAdminLoginModal();
+          renderAll();
+          showToast('Signed in to Separate Admin Portal (#/admin)');
+        } else {
+          document.getElementById('loginErrorBanner').classList.remove('hidden');
+        }
+      });
+
+      // Logout Admin Handler
+      document.getElementById('logoutAdminBtn').addEventListener('click', () => {
+        state.isAdminAuthenticated = false;
+        state.viewMode = 'widget';
+        renderAll();
+        showToast('Logged out of Admin Portal — Returned to User Webpage');
+      });
+
+      // Update Admin Credentials
+      document.getElementById('updateAdminCredsBtn').addEventListener('click', () => {
+        if (!state.isAdminAuthenticated) return;
+        const newU = (document.getElementById('newAdminUserInput').value || '').trim();
+        const newP = (document.getElementById('newAdminPassInput').value || '').trim();
+        if (!newU || !newP) {
+          showToast('Please enter both a new username and password');
+          return;
+        }
+        state.adminUsername = newU;
+        state.adminPassword = newP;
+        document.getElementById('newAdminUserInput').value = '';
+        document.getElementById('newAdminPassInput').value = '';
+        saveStateToStorage();
+        renderViewLayout();
+        showToast(`Admin login credentials updated (Username: ${newU})`);
+      });
+
+      // Quick Upload Button in Header (Admin Only)
+      document.getElementById('openQuickUploadBtn').addEventListener('click', () => {
+        if (!state.isAdminAuthenticated) {
+          openAdminLoginModal('admin');
+          return;
+        }
+        state.viewMode = 'admin';
+        renderViewLayout();
+        document.getElementById('fileInput').click();
+      });
+
+      // File Input & Drag-and-Drop
+      const fileInput = document.getElementById('fileInput');
+      const dropZone = document.getElementById('dropZone');
+      document.getElementById('browseFilesBtn').addEventListener('click', e => {
+        e.stopPropagation();
+        if (!state.isAdminAuthenticated) {
+          openAdminLoginModal('admin');
+          return;
+        }
+        fileInput.click();
+      });
+      dropZone.addEventListener('click', e => {
+        if (e.target.closest('button')) return;
+        if (!state.isAdminAuthenticated) {
+          openAdminLoginModal('admin');
+          return;
+        }
+        fileInput.click();
+      });
+      fileInput.addEventListener('change', e => {
+        handleFilesSelected(e.target.files);
+        fileInput.value = '';
+      });
+      dropZone.addEventListener('dragover', e => {
+        e.preventDefault();
+        dropZone.classList.add('border-indigo-600', 'bg-indigo-50/40');
+      });
+      dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('border-indigo-600', 'bg-indigo-50/40');
+      });
+      dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.classList.remove('border-indigo-600', 'bg-indigo-50/40');
+        if (e.dataTransfer && e.dataTransfer.files) {
+          handleFilesSelected(e.dataTransfer.files);
+        }
+      });
+
+      // Paste Custom Text Document Form
+      const pasteForm = document.getElementById('pasteDocForm');
+      document.getElementById('togglePasteFormBtn').addEventListener('click', e => {
+        e.stopPropagation();
+        pasteForm.classList.toggle('hidden');
+      });
+      document.getElementById('closePasteFormBtn').addEventListener('click', () => {
+        pasteForm.classList.add('hidden');
+      });
+      document.getElementById('savePastedDocBtn').addEventListener('click', () => {
+        if (!state.isAdminAuthenticated) return;
+        const titleInput = document.getElementById('customDocTitle');
+        const contentInput = document.getElementById('customDocContent');
+        const name = (titleInput.value || '').trim() || `Admin_Note_${state.documents.length + 1}.txt`;
+        const content = (contentInput.value || '').trim();
+        if (!content) {
+          showToast('Please enter document text before saving.');
+          return;
+        }
+        const newDoc = createIndexedDocument({
+          id: 'doc_' + Date.now(),
+          name,
+          type: 'TEXT',
+          active: true,
+          uploadedAt: 'Added by Admin',
+          content
+        });
+        state.documents.unshift(newDoc);
+        titleInput.value = '';
+        contentInput.value = '';
+        pasteForm.classList.add('hidden');
+        saveStateToStorage();
+        renderAll();
+        showToast(`Indexed "${name}" & updated User Widget embed code`);
+      });
+
+      // Restore Samples & Clear All
+      document.getElementById('loadSamplesBtn').addEventListener('click', () => {
+        if (!state.isAdminAuthenticated) return;
+        state.documents = DEFAULT_DOCS.map(d => createIndexedDocument(d));
+        saveStateToStorage();
+        renderAll();
+        showToast('Restored default sample documents');
+      });
+      document.getElementById('clearAllDocsBtn').addEventListener('click', () => {
+        if (!state.isAdminAuthenticated) return;
+        state.documents = [];
+        saveStateToStorage();
+        renderAll();
+        showToast('Cleared all documents — bot will now refuse all queries');
+      });
+
+      // Delegated clicks
+      document.addEventListener('click', e => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        const action = btn.getAttribute('data-action');
+        const docId = btn.getAttribute('data-id');
+
+        if (action === 'delete-doc' && docId) {
+          if (!state.isAdminAuthenticated) return;
+          state.documents = state.documents.filter(d => d.id !== docId);
+          saveStateToStorage();
+          renderAll();
+          showToast('Document removed from knowledge base');
+        } else if (action === 'inspect-doc' && docId) {
+          openDocInspector(docId);
+        } else if (action === 'run-sample-prompt') {
+          const q = btn.getAttribute('data-query');
+          if (q) {
+            state.isWidgetPopupOpen = true;
+            renderViewLayout();
+            handleUserQuery(q);
+          }
+        }
+      });
+
+      document.addEventListener('change', e => {
+        const checkbox = e.target.closest('[data-action="toggle-doc"]');
+        if (!checkbox) return;
+        if (!state.isAdminAuthenticated) {
+          checkbox.checked = !checkbox.checked;
+          return;
+        }
+        const docId = checkbox.getAttribute('data-id');
+        const doc = state.documents.find(d => d.id === docId);
+        if (doc) {
+          doc.active = checkbox.checked;
+          saveStateToStorage();
+          renderDocumentLists();
+          renderEmbedCodes();
+          showToast(`${doc.name} ${doc.active ? 'enabled' : 'disabled'}`);
+        }
+      });
+
+      thresholdSelect.addEventListener('change', () => {
+        if (!state.isAdminAuthenticated) return;
+        state.strictness = thresholdSelect.value;
+        const labelMap = {
+          low: 'High Recall',
+          medium: 'Balanced (Strict)',
+          high: 'Ultra-Strict'
+        };
+        document.getElementById('thresholdLabel').textContent = labelMap[state.strictness] || 'Strict';
+        saveStateToStorage();
+      });
+
+      maxChunksSelect.addEventListener('change', () => {
+        if (!state.isAdminAuthenticated) return;
+        state.maxChunks = Number(maxChunksSelect.value) || 2;
+        saveStateToStorage();
+      });
+
+      verbatimOnlyToggle.addEventListener('change', () => {
+        if (!state.isAdminAuthenticated) return;
+        state.verbatimOnly = verbatimOnlyToggle.checked;
+        saveStateToStorage();
+        renderMessages();
+      });
+
+      const apiKeyInput = document.getElementById('geminiApiKeyInput');
+      apiKeyInput.addEventListener('input', () => {
+        if (!state.isAdminAuthenticated) return;
+        state.geminiApiKey = apiKeyInput.value;
+        renderMessages();
+      });
+
+      document.getElementById('closeModalBtn').addEventListener('click', () => {
+        document.getElementById('docInspectorModal').classList.add('hidden');
+      });
+      document.getElementById('docInspectorModal').addEventListener('click', e => {
+        if (e.target.id === 'docInspectorModal') {
+          document.getElementById('docInspectorModal').classList.add('hidden');
+        }
+      });
+
+      const chatForm = document.getElementById('chatForm');
+      const queryInput = document.getElementById('userQueryInput');
+      chatForm.addEventListener('submit', e => {
+        e.preventDefault();
+        const q = queryInput.value;
+        queryInput.value = '';
+        handleUserQuery(q);
+      });
+      queryInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          const q = queryInput.value;
+          queryInput.value = '';
+          handleUserQuery(q);
+        }
+      });
+
+      document.getElementById('clearChatBtn').addEventListener('click', () => {
+        state.messages = [];
+        renderMessages();
+        showToast('Chat history cleared');
+      });
+
+      renderAll();
+
+      handleUserQuery('What is the maximum vehicle loan sanction authority and margin for Scale-IV Chief Managers?');
+    }
+
+    window.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>
+
+
+
+
