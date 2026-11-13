@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Ask questions grounded only in administrator-uploaded documents." />
+  <title>VaultRAG — Document Assistant</title>
+  <style>
+    :root { color-scheme: light; --ink:#172033; --muted:#68758b; --line:#dce3ee; --brand:#4f46e5; --wash:#f4f6fb; }
+    * { box-sizing:border-box; }
+    body { margin:0; font:15px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; color:var(--ink); background:linear-gradient(145deg,#f8faff,#eef2ff); min-height:100vh; }
+    .shell { max-width:900px; margin:0 auto; padding:28px 18px 40px; }
+    header { display:flex; align-items:center; gap:13px; margin-bottom:22px; }
+    .logo { width:44px;height:44px;border-radius:14px;background:var(--brand);color:#fff;display:grid;place-items:center;font-size:21px;box-shadow:0 8px 20px #4f46e52e; }
+    h1 { font-size:20px;line-height:1.2;margin:0;letter-spacing:-.02em; }
+    header p { margin:4px 0 0;color:var(--muted);font-size:13px; }
+    .notice { border:1px solid #c7d2fe;background:#eef2ff;color:#3730a3;border-radius:12px;padding:11px 14px;font-size:13px;margin-bottom:16px; }
+    .card { background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 12px 35px #14213d0c;overflow:hidden; }
+    .messages { min-height:350px;max-height:62vh;overflow:auto;padding:20px;display:flex;flex-direction:column;gap:14px;background:#fbfcff; }
+    .welcome,.bubble { border:1px solid var(--line);border-radius:14px;padding:13px 15px;background:white;max-width:100%; }
+    .welcome { color:#46536a;font-size:14px; }
+    .question { align-self:flex-end;background:var(--brand);color:white;border-radius:16px 16px 4px 16px;padding:10px 14px;max-width:82%;white-space:pre-wrap; }
+    .answer { align-self:stretch;background:white;border:1px solid var(--line);border-radius:16px 16px 16px 4px;padding:15px; }
+    .answer-title { font-size:12px;font-weight:700;color:#0f766e;margin-bottom:8px; }
+    .answer ol { padding-left:23px;margin:8px 0;display:grid;gap:10px; }
+    .answer li { padding:10px 12px;border:1px solid #e4e8f0;border-radius:11px;background:#f8faff; }
+    .meta { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px 12px;color:#596579;font-size:11px;margin:4px 0 8px; }
+    .source { color:#4b5a72;font-size:12px;font-weight:650;margin-bottom:4px; }
+    .passage { font-size:13px;line-height:1.55; }
+    mark { background:#fef08a;color:#172033;border-radius:3px;padding:0 2px; }
+    .refusal { background:#fff5f5;border:1px solid #fecaca;color:#991b1b;border-radius:14px;padding:13px 15px;align-self:stretch; }
+    .empty { color:#657188;font-size:13px; }
+    form { display:flex;gap:9px;padding:14px;border-top:1px solid var(--line);background:#fff; }
+    input { min-width:0;flex:1;border:1px solid #cbd5e1;border-radius:12px;padding:12px 14px;font:inherit;outline:none; }
+    input:focus { border-color:var(--brand);box-shadow:0 0 0 3px #4f46e51b; }
+    button { border:0;border-radius:12px;background:var(--brand);color:white;font:600 14px/1.2 Inter,ui-sans-serif,system-ui,sans-serif;padding:0 20px;cursor:pointer; }
+    button:hover { background:#4338ca; }
+    .actions { display:flex;justify-content:flex-end;padding:0 14px 12px;background:#fff; }
+    .clear { background:transparent;color:var(--muted);font-size:12px;padding:5px 8px; }
+    .clear:hover { background:#f1f5f9;color:var(--ink); }
+    @media(max-width:560px) { .shell{padding:18px 12px 26px}.messages{padding:14px;min-height:300px;max-height:66vh}form{padding:10px}.meta{grid-template-columns:1fr}button[type=submit]{padding:0 15px} }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div class="logo" aria-hidden="true">▤</div>
+      <div><h1>VaultRAG Document Assistant</h1><p>Answers are grounded in administrator-uploaded files.</p></div>
+    </header>
+    <div class="notice" id="sourceStatus" role="status">Checking available admin documents… No web search is used.</div>
+    <section class="card" aria-label="Document chat">
+      <div id="messages" class="messages" aria-live="polite">
+        <div class="welcome">Ask a question about the available documents. Replies show relevant passages and their source details. Follow-up questions can refer to your previous question.</div>
+      </div>
+      <form id="chatForm">
+        <input id="query" type="text" autocomplete="off" placeholder="Ask about the uploaded documents…" aria-label="Your question" required />
+        <button type="submit">Send</button>
+      </form>
+      <div class="actions"><button id="clear" class="clear" type="button">Clear conversation</button></div>
+    </section>
+  </main>
+  <script>
+    const STORAGE_KEYS = ['vaultrag_state_v2', 'vaultrag_state_v1'];
+    const STOP = new Set('a an the is are was were be been being have has had do does did of in to for with on at from by what which who how when where why and or not tell me please can could would should about according explain find tell show give it its this that these those they them their'.split(' '));
+    const messages = document.getElementById('messages');
+    let previousQuestion = '';
+
+    function activeDocuments() {
+      try {
+        for (const key of STORAGE_KEYS) {
+          const saved = JSON.parse(localStorage.getItem(key) || 'null');
+          if (saved && Array.isArray(saved.documents)) return saved.documents.filter(d => d.active !== false && String(d.content || '').trim());
+        }
+      } catch (_) {}
+      return [];
+    }
+    function norm(word) {
+      let w = String(word || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (w.length > 4 && w.endsWith('ies')) return w.slice(0, -3) + 'y';
+      if (w.length > 4 && w.endsWith('ing')) return w.slice(0, -3);
+      if (w.length > 3 && w.endsWith('ed')) return w.slice(0, -2);
+      if (w.length > 3 && w.endsWith('es')) return w.slice(0, -2);
+      if (w.length > 3 && w.endsWith('s') && !w.endsWith('ss')) return w.slice(0, -1);
+      return w;
+    }
+    function tokens(text) {
+      return [...new Set(String(text || '').toLowerCase().split(/[^a-z0-9]+/).map(norm).filter(w => w.length > 1 && !STOP.has(w)))];
+    }
+    function nearTerm(word, terms) {
+      if (word.length < 4) return false;
+      for (const term of terms) {
+        if (term.length < 4 || Math.abs(term.length - word.length) > 1) continue;
+        let i=0,j=0,edits=0;
+        while (i<word.length && j<term.length) {
+          if (word[i]===term[j]) { i++;j++;continue; }
+          if (++edits>1) break;
+          if (word.length>term.length) i++; else if (term.length>word.length) j++; else { i++;j++; }
+        }
+        edits += (word.length-i)+(term.length-j);
+        if (edits<=1) return true;
+      }
+      return false;
+    }
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    function metadata(doc, passage) {
+      const all = String(doc.content || '');
+      const circ = all.match(/\b(?:circular|circ\.)\s*(?:no\.?|number|#)\s*[:\-]?\s*([A-Z0-9][A-Z0-9/.-]*)/i);
+      const date = all.match(/\b(?:\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}|\d{4}-\d{2}-\d{2}|\d{1,2}\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{4}|(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2},?\s+\d{4})\b/i);
+      const point = passage.match(/\b(?:point|para(?:graph)?|clause|item)\s*(?:no\.?|number|#)?\s*([0-9]+(?:\.[0-9]+)*(?:\([a-z0-9]+\))?)/i) || passage.match(/^\s*(\d+(?:\.\d+)*(?:\([a-z0-9]+\))?)[.)]?\s+/i);
+      const page = passage.match(/\bPAGE\s+(\d+)/i);
+      return { circular:circ?.[1] || 'Not stated in source', date:date?.[0] || 'Not stated in source', point:point?.[1] || 'Not numbered in source', page:page?.[1] || 'Not available in source' };
+    }
+    function search(query, prior) {
+      const docs = activeDocuments();
+      if (!docs.length) return { error:'No admin-uploaded documents are available in this browser yet. Ask the administrator to upload the files in this browser, then try again.' };
+      const q = tokens(query);
+      if (!q.length) return { error:'Please enter a specific question about the uploaded documents.' };
+      const context = tokens(prior).filter(w => !q.includes(w));
+      const rows = [];
+      for (const doc of docs) {
+        const paras = String(doc.content || '').split(/\n\s*\n+/).map(x => x.trim()).filter(Boolean);
+        for (const raw of paras) {
+          const p = raw.replace(/^PAGE\s+\d+\s*/i, '');
+          const pTokens = tokens(p);
+          const pSet = new Set(pTokens);
+          const hits = q.filter(w => pSet.has(w) || p.toLowerCase().includes(w) || nearTerm(w,pSet));
+          const coverage = hits.length / q.length;
+          if (!hits.length || (q.length > 2 && (hits.length < 2 || coverage < 0.3))) continue;
+          const contextHits = context.filter(w => pSet.has(w) || nearTerm(w,pSet)).length;
+          const phrase = query.trim().length > 4 && p.toLowerCase().includes(query.toLowerCase()) ? 1.5 : 0;
+          rows.push({doc, passage:p, hits, score:hits.length + coverage + contextHits*0.35 + phrase, meta:metadata(doc,raw)});
+        }
+      }
+      rows.sort((a,b)=>b.score-a.score || b.hits.length-a.hits.length);
+      const unique=[], seen=new Set();
+      for (const row of rows) if (!seen.has(row.doc.id || row.doc.name)) { unique.push(row);seen.add(row.doc.id || row.doc.name);if(unique.length===6)break; }
+      if (unique.length < 6) for (const row of rows) if (!unique.includes(row)) { unique.push(row);if(unique.length===6)break; }
+      return unique.length ? {results:unique} : {error:'I could not find a sufficiently relevant passage in the active admin-uploaded files. Web search and outside knowledge are disabled.'};
+    }
+    function highlight(text, words) {
+      const safe=escapeHtml(text);
+      if (!words.length) return safe;
+      const pattern=words.map(x=>x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|');
+      return safe.replace(new RegExp(`\\b(${pattern})(?:s|es|ed|ing)?\\b`,'gi'),'<mark>$&</mark>');
+    }
+    function refreshStatus() {
+      const docs=activeDocuments();
+      document.getElementById('sourceStatus').textContent = docs.length
+        ? `${docs.length} active admin document${docs.length===1?'':'s'} available in this browser · Strict file-only answers · No web search`
+        : 'No admin-uploaded documents found in this browser. Uploads are browser-local in this static demo; no web search is used.';
+    }
+    function appendQuestion(q) {
+      const el=document.createElement('div');el.className='question';el.textContent=q;messages.appendChild(el);
+    }
+    function answerHtml(result, qTokens, followUp) {
+      if (result.error) return `<div class="refusal">${escapeHtml(result.error)}</div>`;
+      const files=new Set(result.results.map(x=>x.doc.name));
+      const intro=`<div class="answer-title">Verified from ${files.size} admin-uploaded file${files.size===1?'':'s'}${followUp?' · using your previous question for context':''}</div>`;
+      const points=result.results.map((r,i)=>`<li><div class="source">${escapeHtml(r.doc.name)}</div><div class="meta"><span><b>Circular:</b> ${escapeHtml(r.meta.circular)}</span><span><b>Date:</b> ${escapeHtml(r.meta.date)}</span><span><b>Point:</b> ${escapeHtml(r.meta.point)}</span><span><b>Page:</b> ${escapeHtml(r.meta.page)}</span></div><div class="passage">${highlight(r.passage,qTokens)}</div></li>`).join('');
+      return `<div class="answer">${intro}<ol>${points}</ol></div>`;
+    }
+    document.getElementById('chatForm').addEventListener('submit', event => {
+      event.preventDefault();
+      const input=document.getElementById('query');
+      const q=input.value.trim();if(!q)return;
+      appendQuestion(q);
+      const followUp=Boolean(previousQuestion) && (tokens(q).length<=5 || /\b(this|that|it|its|they|them|these|those|same|also|more|their|there|such)\b|^(what about|how about|and\b|also\b|which circular|where is it)\b/i.test(q));
+      const result=search(q,followUp?previousQuestion:'');
+      const wrapper=document.createElement('div');wrapper.innerHTML=answerHtml(result,tokens(q),followUp);messages.appendChild(wrapper.firstElementChild);
+      previousQuestion=q;input.value='';input.focus();messages.scrollTop=messages.scrollHeight;refreshStatus();
+    });
+    document.getElementById('clear').addEventListener('click',()=>{messages.innerHTML='<div class="welcome">Ask a question about the available documents. Replies show relevant passages and their source details. Follow-up questions can refer to your previous question.</div>';previousQuestion='';document.getElementById('query').focus();});
+    window.addEventListener('storage',refreshStatus);
+    refreshStatus();
+  </script>
+</body>
+</html>
+
